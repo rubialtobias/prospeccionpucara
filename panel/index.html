@@ -72,12 +72,6 @@
     .etapa:nth-child(4) { border-left: 0; }
     .etapa:nth-child(n+4) { border-top: 1px solid var(--line); }
   }
-  @media (max-width: 480px) {
-    .embudo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .etapa:nth-child(4) { border-left: 1px solid var(--line); }
-    .etapa:nth-child(odd) { border-left: 0; }
-    .etapa:nth-child(n+3) { border-top: 1px solid var(--line); }
-  }
 
   .fila { display: grid; grid-template-columns: 1.3fr 1fr 0.8fr; gap: 20px; }
   @media (max-width: 900px) { .fila { grid-template-columns: 1fr; } }
@@ -141,6 +135,66 @@
   .historial { display: grid; gap: 6px; font-size: 13px; }
   .historial div { display: flex; gap: 8px; }
   .historial .fecha { font-family: var(--font-mono); color: var(--muted); white-space: nowrap; }
+  .conv .corto { display: none; }
+
+  /* Celular: embudo como lista, leads como tarjetas, ficha a pantalla completa */
+  @media (max-width: 640px) {
+    .wrap { gap: 14px; padding-block: 14px 32px; }
+    h1 { font-size: 19px; }
+    header .meta { font-size: 12px; gap: 10px; }
+
+    .embudo { grid-template-columns: 1fr; padding-block: 6px; }
+    .etapa { grid-template-columns: 96px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 14px; border-left: 0; border-top: 0 !important; }
+    .etapa .nombre { grid-column: 1; grid-row: 1; }
+    .etapa .barra { grid-column: 2; grid-row: 1; }
+    .etapa .valor { grid-column: 3; grid-row: 1; font-size: 20px; text-align: right; min-width: 2.5ch; }
+    .etapa .conv { grid-column: 2 / 4; grid-row: 2; font-size: 11px; margin-top: -4px; }
+    .etapa:first-child .conv { display: none; }
+    .conv .largo { display: none; }
+    .conv .corto { display: inline; }
+
+    .fila { gap: 14px; }
+    .fila .hoy { order: -2; }
+    .fila .pendientes { order: -1; }
+    .panel { padding: 14px; }
+    .hoy .grande { font-size: 28px; }
+
+    .filtros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .filtros h2 { grid-column: 1 / -1; }
+    #buscar { grid-column: 1 / -1; width: 100%; }
+    .filtros select { width: 100%; min-width: 0; padding-inline: 6px; }
+    /* 16px evita que el iPhone haga zoom al tocar un campo */
+    input, select, textarea { font-size: 16px; }
+
+    .scroll.leads { overflow: visible; margin-inline: -14px; }
+    #tabla thead { display: none; }
+    #tabla, #tabla tbody { display: block; }
+    #tabla tbody tr {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; padding: 12px 14px;
+      border-top: 1px solid var(--line);
+      grid-template-areas: "persona estado" "empresa empresa" "email email" "califica fecha";
+    }
+    #tabla tbody td { display: block; padding: 0; border: 0; min-width: 0; }
+    #tabla tbody tr:hover td, #tabla tbody tr.activo td { background: none; }
+    #tabla tbody tr:hover, #tabla tbody tr.activo { background: var(--accent-soft); }
+    #tabla .c-persona { grid-area: persona; }
+    #tabla .c-estado { grid-area: estado; justify-self: end; }
+    #tabla .c-empresa { grid-area: empresa; font-size: 14px; }
+    #tabla .c-email { grid-area: email; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #tabla .c-califica { grid-area: califica; margin-top: 4px; }
+    #tabla .c-fecha { grid-area: fecha; justify-self: end; margin-top: 4px; font-size: 12px; }
+    #tabla .c-ciudad { display: none; }
+    #tabla .c-email:empty, #tabla .c-email .gris { display: none; }
+    #tabla td.vacio { padding: 12px 14px; }
+
+    .ficha { width: 100vw; border-left: 0; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+    .ficha header { position: sticky; top: 0; background: var(--surface); padding-block: 4px 10px; z-index: 1; }
+    .cerrar { font-size: 28px; padding: 6px 10px; }
+    dl { grid-template-columns: 84px minmax(0, 1fr); }
+    .boton { width: 100%; padding-block: 12px; text-align: center; }
+    .ficha .acciones { flex-direction: column; align-items: stretch !important; }
+  }
+
   .login { max-width: 420px; width: 100%; margin: 12vh auto 0; display: grid; gap: 12px; }
   .enlace { all: unset; cursor: pointer; color: var(--accent); font-weight: 600; }
   .enlace:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -179,7 +233,7 @@
       <h2>Por rubro</h2>
       <div class="scroll"><table id="rubros"></table></div>
     </section>
-    <section class="panel">
+    <section class="panel pendientes">
       <h2>Para responder</h2>
       <div class="lista" id="pendientes"></div>
     </section>
@@ -196,16 +250,16 @@
       <h2>Leads <span class="num" id="contador"></span></h2>
       <input id="buscar" type="search" placeholder="Buscar nombre o empresa" aria-label="Buscar nombre o empresa">
       <select id="f-encaja" aria-label="Filtrar por calificación">
-        <option value="">Toda calificación</option>
+        <option value="">Calificación</option>
         <option value="si">Encajan</option>
         <option value="dudoso">Dudosos</option>
         <option value="no">No encajan</option>
         <option value="sin">Sin calificar</option>
       </select>
-      <select id="f-estado" aria-label="Filtrar por estado"><option value="">Todo estado</option></select>
-      <select id="f-rubro" aria-label="Filtrar por rubro"><option value="">Todo rubro</option></select>
+      <select id="f-estado" aria-label="Filtrar por estado"><option value="">Estado</option></select>
+      <select id="f-rubro" aria-label="Filtrar por rubro"><option value="">Rubro</option></select>
     </div>
-    <div class="scroll">
+    <div class="scroll leads">
       <table id="tabla">
         <thead><tr><th>Persona</th><th>Empresa</th><th>Email</th><th>Ciudad</th><th>Califica</th><th>Estado</th><th>Último contacto</th></tr></thead>
         <tbody></tbody>
@@ -246,7 +300,8 @@ function pintarEmbudo() {
   const etapas = [
     ['Encontrados', L.length],
     ['Encajan', L.filter((l) => l.encaja === 'si').length],
-    ['Con email', L.filter((l) => l.email).length],
+    // Solo los que encajan: los dudosos con email no se contactan hasta revisarlos
+    ['Con email', L.filter((l) => l.encaja === 'si' && l.email).length],
     ['Enviados', L.filter((l) => CONTACTADO.includes(l.estado)).length],
     ['Respondieron', L.filter((l) => RESPONDIO.includes(l.estado)).length],
     ['Reuniones', L.filter((l) => REUNION.includes(l.estado)).length],
@@ -257,7 +312,7 @@ function pintarEmbudo() {
       <div class="nombre">${nombre}</div>
       <div class="valor">${n}</div>
       <div class="barra"><span style="width:${pct(n, total)}%"></span></div>
-      <div class="conv">${i === 0 ? 'total' : `${pct(n, etapas[i - 1][1])}% del paso anterior`}</div>
+      <div class="conv">${i === 0 ? 'total' : `<span class="largo">${pct(n, etapas[i - 1][1])}% del paso anterior</span><span class="corto">${pct(n, etapas[i - 1][1])}% de ${etapas[i - 1][0].toLowerCase()}</span>`}</div>
     </div>`).join('');
 }
 
@@ -284,7 +339,7 @@ function pintarHoy() {
   $('#hoy-enviados').textContent = n;
   $('#hoy-limite').textContent = lim;
   $('#hoy-barra').style.width = `${Math.min(100, pct(n, lim))}%`;
-  const listos = datos.leads.filter((l) => l.estado === 'con_email').length;
+  const listos = datos.leads.filter((l) => l.estado === 'con_email' && l.encaja === 'si').length;
   $('#hoy-texto').textContent = n === 0 && !datos.leads.some((l) => envios(l).length)
     ? `Los envíos empiezan cuando termine el calentamiento de la cuenta. ${listos} leads con email listos.`
     : `Quedan ${Math.max(0, lim - n)} envíos hoy. ${listos} leads con email esperando.`;
@@ -305,13 +360,13 @@ function pintarTabla() {
   $('#contador').textContent = `${lista.length}`;
   $('#tabla tbody').innerHTML = lista.length ? lista.map((l) => `
     <tr data-url="${esc(l.linkedin_url)}" class="${l.linkedin_url === abierto ? 'activo' : ''}" tabindex="0">
-      <td><div class="quien">${esc(quien(l))}</div><div class="gris">${esc(l.cargo)}</div></td>
-      <td>${esc(l.empresa) || '<span class="gris">—</span>'}</td>
-      <td>${esc(l.email) || '<span class="gris">—</span>'}</td>
-      <td>${esc(l.ubicacion) || '<span class="gris">—</span>'}</td>
-      <td>${l.encaja ? `<span class="pill ${esc(l.encaja)}">${NOMBRE_ENCAJA[l.encaja] ?? esc(l.encaja)}</span>` : '<span class="gris">Sin calificar</span>'}</td>
-      <td><span class="pill ${esc(l.estado)}">${NOMBRE_ESTADO[l.estado] ?? esc(l.estado)}</span></td>
-      <td class="gris">${fecha(ultimoContacto(l)?.fecha) || '—'}</td>
+      <td class="c-persona"><div class="quien">${esc(quien(l))}</div><div class="gris">${esc(l.cargo)}</div></td>
+      <td class="c-empresa">${esc(l.empresa) || '<span class="gris">—</span>'}</td>
+      <td class="c-email">${esc(l.email) || '<span class="gris">—</span>'}</td>
+      <td class="c-ciudad">${esc(l.ubicacion) || '<span class="gris">—</span>'}</td>
+      <td class="c-califica">${l.encaja ? `<span class="pill ${esc(l.encaja)}">${NOMBRE_ENCAJA[l.encaja] ?? esc(l.encaja)}</span>` : '<span class="gris">Sin calificar</span>'}</td>
+      <td class="c-estado"><span class="pill ${esc(l.estado)}">${NOMBRE_ESTADO[l.estado] ?? esc(l.estado)}</span></td>
+      <td class="c-fecha gris">${fecha(ultimoContacto(l)?.fecha)}</td>
     </tr>`).join('') : '<tr><td colspan="7" class="vacio">Ningún lead coincide con estos filtros.</td></tr>';
 }
 
@@ -359,7 +414,7 @@ function pintarFicha() {
       <label for="nota">Nota</label>
       <textarea id="nota" placeholder="Ej: pidió que lo llamemos el jueves">${esc(l.nota)}</textarea>
     </div>
-    <div style="display:flex;gap:12px;align-items:center"><button class="boton" id="guardar">Guardar</button><span class="guardado" id="guardado"></span></div>
+    <div class="acciones" style="display:flex;gap:12px;align-items:center"><button class="boton" id="guardar">Guardar</button><span class="guardado" id="guardado"></span></div>
     <div class="campo">
       <label>Historial</label>
       <div class="historial">${hist.length ? hist.map((h) => `<div><span class="fecha">${fecha(h.fecha)}</span><span>${h.tipo === 'estado' ? `Pasó de ${NOMBRE_ESTADO[h.de] ?? h.de} a ${NOMBRE_ESTADO[h.a] ?? h.a}` : h.tipo === 'envio' ? `Email enviado: ${esc(h.asunto ?? '')}` : h.tipo === 'respuesta' ? 'Respondió' : esc(h.tipo)}</span></div>`).join('') : '<span class="gris">Sin movimientos todavía.</span>'}</div>
