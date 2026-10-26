@@ -17,7 +17,10 @@ import { aCsv } from './buscar.mjs';
 const ARCHIVO_LEADS = new URL('../data/leads.json', import.meta.url);
 const ARCHIVO_CSV = new URL('../data/leads.csv', import.meta.url);
 
-const FIRMA = 'Tobías\nPucará Technologies';
+// Firma: en el primer email sin web ni teléfono (los links en el primer contacto suben el riesgo de spam).
+// En los seguimientos, con la web y el WhatsApp. El formato (negrita, gris, links) lo agrega enviar.mjs.
+export const FIRMA = 'Tobías Rubial\nPucará Technologies · Automatización e IA para negocios';
+export const FIRMA_COMPLETA = `${FIRMA}\npucaratechnologies.com · WhatsApp +54 9 11 5486-6935`;
 // Email personal: le hablamos a una persona. Genérico: al equipo, en plural.
 function trato(lead) {
   const uno = lead.email_tipo === 'personal' && Boolean(lead.nombre);
@@ -83,13 +86,13 @@ export function redactar(lead) {
   const seguimiento1 = [
     saludoSeguimiento(lead),
     `${t.Te} escribo de nuevo por si el email anterior quedó tapado. Si ${t.interesa}, con 15 minutos alcanza para que ${t.veas} funcionando con una de sus propiedades.`,
-    FIRMA,
+    FIRMA_COMPLETA,
     t.baja,
   ].join('\n\n');
   const seguimiento2 = [
     saludoSeguimiento(lead),
     `Este es mi último mensaje para no ${t.bandeja}. Si en algún momento ${t.querés} ver cómo funciona, ${t.respondé} este email y lo coordinamos.`,
-    FIRMA,
+    FIRMA_COMPLETA,
   ].join('\n\n');
   return { asunto: g.asunto, cuerpo, seguimiento1, seguimiento2, variante: variante(lead), estado: 'pendiente', creado: new Date().toISOString() };
 }

@@ -67,6 +67,26 @@ export function armarCola(leads, config, hoy) {
   return [...seguimientos, ...nuevos];
 }
 
+const escaparHtml = (t) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// Formato mínimo: párrafos normales, firma con el nombre en negrita y el resto en gris, línea de baja chica.
+// Sin fuentes propias, colores de marca ni imágenes: un email "de persona" llega mejor y lo responden más.
+export function aHtml(texto) {
+  const parrafos = texto.trim().split(/\n{2,}/).map((p) => {
+    const lineas = p.split('\n').map(escaparHtml);
+    if (/^Tobías Rubial/.test(p)) {
+      const [nombre, ...resto] = lineas;
+      const datos = resto.join('<br>')
+        .replace('pucaratechnologies.com', '<a href="https://pucaratechnologies.com" style="color:#555">pucaratechnologies.com</a>')
+        .replace(/WhatsApp (\+54 9 11 5486-6935)/, 'WhatsApp <a href="https://wa.me/5491154866935" style="color:#555">$1</a>');
+      return `<p style="margin:18px 0 0"><strong>${nombre}</strong><br><span style="color:#555;font-size:13px">${datos}</span></p>`;
+    }
+    if (/^Si no (querés|quieren) que/.test(p)) return `<p style="margin:18px 0 0;color:#888;font-size:12px">${lineas.join('<br>')}</p>`;
+    return `<p style="margin:0 0 12px">${lineas.join('<br>')}</p>`;
+  });
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#222">${parrafos.join('')}</div>`;
+}
+
 export function armarMensaje(lead, paso, remitente) {
   const b = lead.borrador;
   const primero = enviosDe(lead)[0];
@@ -76,6 +96,7 @@ export function armarMensaje(lead, paso, remitente) {
     subject: paso === 0 ? b.asunto : `Re: ${b.asunto}`,
     text: paso === 0 ? b.cuerpo : b[`seguimiento${paso}`],
   };
+  mensaje.html = aHtml(mensaje.text);
   // Los seguimientos van en el mismo hilo que el primer email
   if (paso > 0 && primero?.message_id) {
     mensaje.inReplyTo = primero.message_id;
@@ -174,8 +195,11 @@ async function main() {
     const lead = leads.find((l) => l.borrador?.estado === 'aprobado') ?? leads.find((l) => l.borrador);
     if (!lead) throw new Error('No hay borradores todavía.');
     const t = await crearTransporte(remitente);
+    // El primer email y el seguimiento del día 3, para ver las dos firmas
     await t.sendMail({ ...armarMensaje(lead, 0, remitente), to: remitente.email, subject: `[MUESTRA] ${lead.borrador.asunto}` });
-    console.log(`Muestra enviada a ${remitente.email}: el email para ${lead.empresa}. No se marcó como enviado.`);
+    const seguimiento = armarMensaje({ ...lead, historial: [] }, 1, remitente);
+    await t.sendMail({ ...seguimiento, to: remitente.email, subject: `[MUESTRA día 3] ${seguimiento.subject}` });
+    console.log(`Muestras enviadas a ${remitente.email}: el primer email y el seguimiento para ${lead.empresa}. No se marcaron como enviados.`);
     return;
   }
 

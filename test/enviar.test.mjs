@@ -54,3 +54,16 @@ test('cuenta los envíos de hoy', () => {
   const leads = [{ historial: [{ tipo: 'envio', fecha: new Date().toISOString() }, { tipo: 'estado', fecha: new Date().toISOString() }] }];
   assert.equal(enviadosHoy(leads, new Date()), 1);
 });
+
+test('formato mínimo: firma en negrita, links solo donde hay web o WhatsApp', async () => {
+  const { aHtml } = await import('../src/enviar.mjs');
+  const { FIRMA, FIRMA_COMPLETA } = await import('../src/redactar.mjs');
+  const primero = aHtml(`Hola Juan,\n\nTexto <con> signos.\n\n${FIRMA}\n\nSi no querés que te vuelva a escribir, respondé "no".`);
+  assert.match(primero, /<strong>Tobías Rubial<\/strong>/);
+  assert.match(primero, /Texto &lt;con&gt; signos/);
+  assert.doesNotMatch(primero, /<a /);
+  assert.doesNotMatch(primero, /<img|font-face|googleapis/);
+  const seguimiento = aHtml(`Hola,\n\nOtra vez.\n\n${FIRMA_COMPLETA}`);
+  assert.match(seguimiento, /href="https:\/\/pucaratechnologies.com"/);
+  assert.match(seguimiento, /href="https:\/\/wa.me\/5491154866935"/);
+});
