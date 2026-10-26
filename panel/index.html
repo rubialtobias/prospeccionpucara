@@ -470,9 +470,13 @@ $('#form-login').addEventListener('submit', async (e) => {
   $('#login-mensaje').textContent = 'Enviando…';
   // shouldCreateUser: false -> solo entran los usuarios invitados desde Supabase
   const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: location.origin } });
-  $('#login-mensaje').textContent = error
-    ? 'Ese email no tiene acceso. Pedile a Tobías que te invite.'
-    : `Listo. Revisá ${email} y abrí el link desde este mismo dispositivo.`;
+  $('#login-mensaje').textContent = !error
+    ? `Listo. Revisá ${email} y abrí el link desde este mismo dispositivo.`
+    : /rate limit|security purposes|seconds/i.test(error.message)
+      ? 'Se pidieron muchos links seguidos. Esperá unos minutos y probá de nuevo.'
+      : /signups not allowed|not found|not allowed/i.test(error.message)
+        ? 'Ese email no tiene acceso. Pedile a Tobías que te invite.'
+        : `No se pudo enviar el link: ${error.message}`;
 });
 $('#salir').addEventListener('click', async () => { await sb.auth.signOut(); location.reload(); });
 sb?.auth.onAuthStateChange((evento) => { if (evento === 'SIGNED_IN' && !$('#login').hidden) location.reload(); });
