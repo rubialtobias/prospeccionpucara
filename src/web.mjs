@@ -100,6 +100,18 @@ export function enlacesDeContacto(html, base) {
   return [...enlaces].slice(0, 3);
 }
 
+// Herramientas de chat y bots que se reconocen por su script en la página
+const CHATS = [
+  ['Tawk.to', /tawk\.to/i], ['Crisp', /crisp\.chat/i], ['Intercom', /intercom/i], ['Zendesk', /zendesk|zdassets/i],
+  ['JivoChat', /jivosite|jivochat/i], ['Tidio', /tidio/i], ['Botmaker', /botmaker/i], ['ManyChat', /manychat/i],
+  ['Kommo', /kommo\.com|amocrm/i], ['Wati', /wati\.io/i], ['Leadsales', /leadsales/i], ['HubSpot', /js\.hs-scripts|hubspot.*conversations|usemessages\.com/i],
+  ['Messenger', /customerchat|facebook\.com\/plugins\/customer_chat/i], ['Smartsupp', /smartsupp/i], ['LiveChat', /livechatinc|cdn\.livechat/i],
+  ['Zoho SalesIQ', /salesiq\.zoho/i], ['Drift', /js\.driftt|drift\.com/i], ['Clientify', /clientify/i], ['Chatwoot', /chatwoot/i],
+  ['Respond.io', /respond\.io/i], ['Landbot', /landbot/i], ['Userlike', /userlike/i], ['Freshchat', /freshchat|wchat\.freshchat/i],
+  ['Olark', /olark/i],
+];
+// GetButton, Joinchat y similares no van: son solo un botón flotante de WhatsApp, no un chat
+
 // Datos de la web que sirven para el gancho del email
 export function revisarWeb(html, urlFinal, ms) {
   const plataformas = {
@@ -111,7 +123,8 @@ export function revisarWeb(html, urlFinal, ms) {
     adaptada_celular: /<meta[^>]+name=["']viewport["']/i.test(html),
     boton_whatsapp: Boolean(extraerWhatsapp(html)),
     formulario: /<form[\s>]/i.test(html),
-    chat: /tawk\.to|crisp\.chat|intercom|zendesk|jivochat|tidio|botmaker|manychat/i.test(html),
+    // Solo lo que está en el HTML: un chat cargado después por Tag Manager o un bot detrás del WhatsApp no se ven
+    chat: CHATS.find(([, re]) => re.test(html))?.[0] ?? '',
     plataforma: Object.entries(plataformas).find(([, re]) => re.test(html))?.[0] ?? '',
     segundos: Math.round(ms / 100) / 10,
     titulo: (html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] ?? '').trim().slice(0, 120),

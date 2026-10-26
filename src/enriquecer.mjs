@@ -4,6 +4,7 @@
 // Uso:
 //   npm run enriquecer -- --max 3        prueba con 3 leads
 //   npm run enriquecer                   todos los que encajan y todavía no se buscaron
+//   npm run enriquecer -- --de-nuevo     vuelve a revisar las webs (sin gastar búsquedas si ya se hicieron)
 //
 // Cada lead gasta 1 búsqueda de Serper (la de la web). Leer la web es gratis.
 
@@ -21,9 +22,10 @@ const ARCHIVO_WEBS = new URL('webs.json', DATA);
 const NAVEGADOR = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
 
 function leerArgs(argv) {
-  const args = { max: Infinity };
+  const args = { max: Infinity, deNuevo: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--max') args.max = Number(argv[++i]);
+    else if (argv[i] === '--de-nuevo') args.deNuevo = true;
     else throw new Error(`Opción desconocida: ${argv[i]}`);
   }
   return args;
@@ -104,7 +106,8 @@ async function main() {
 
   const leads = JSON.parse(await readFile(ARCHIVO_LEADS, 'utf8'));
   const webs = existsSync(ARCHIVO_WEBS) ? JSON.parse(await readFile(ARCHIVO_WEBS, 'utf8')) : {};
-  const pendientes = leads.filter((l) => l.encaja === 'si' && l.empresa && !l.web_revisada).slice(0, args.max);
+  // --de-nuevo vuelve a leer las webs ya revisadas; usa las búsquedas guardadas, así que no gasta créditos
+  const pendientes = leads.filter((l) => l.encaja === 'si' && l.empresa && (args.deNuevo || !l.web_revisada)).slice(0, args.max);
   console.log(`${pendientes.length} leads para enriquecer\n`);
 
   let conEmail = 0;
@@ -113,7 +116,10 @@ async function main() {
     try {
       const { registro, cambios } = await enriquecer(lead, apiKey, webs[lead.linkedin_url]);
       webs[lead.linkedin_url] = registro;
+      // Al revisar de nuevo, lo que ya no se encuentra se borra en vez de quedar el dato viejo
+      for (const campo of ['email', 'email_tipo', 'whatsapp', 'emails_encontrados']) delete lead[campo];
       Object.assign(lead, cambios, { enriquecido: new Date().toISOString().slice(0, 10) });
+      if (!lead.email && lead.estado === 'con_email') lead.estado = 'nuevo';
       if (lead.email && lead.estado === 'nuevo') {
         lead.estado = 'con_email';
         conEmail++;

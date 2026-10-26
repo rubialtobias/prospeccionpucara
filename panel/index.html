@@ -404,7 +404,7 @@ function pintarFicha() {
       <dt>WhatsApp</dt><dd class="num">${esc(l.whatsapp) || '<span class="gris">—</span>'}</dd>
       ${l.web_revisada && !l.web_revisada.error ? `<dt>Su web</dt><dd>${[
         l.web_revisada.boton_whatsapp ? 'Botón de WhatsApp' : 'Sin botón de WhatsApp',
-        l.web_revisada.chat ? 'Tiene chat' : 'Sin chat ni bot',
+        l.web_revisada.chat ? `Chat: ${esc(typeof l.web_revisada.chat === 'string' ? l.web_revisada.chat : 'sí')}` : 'No vimos chat en la web',
         l.web_revisada.formulario ? 'Formulario' : 'Sin formulario',
         l.web_revisada.plataforma ? `Hecha con ${esc(l.web_revisada.plataforma)}` : '',
         `Carga en ${l.web_revisada.segundos} s`,
