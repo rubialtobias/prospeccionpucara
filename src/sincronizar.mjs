@@ -27,7 +27,9 @@ function cliente() {
       headers: { apikey: clave, Authorization: `Bearer ${clave}`, 'Content-Type': 'application/json', ...opciones.headers },
     });
     if (!res.ok) throw new Error(`Supabase respondió ${res.status}: ${await res.text()}`);
-    return res.status === 204 ? null : res.json();
+    // Con return=minimal Supabase responde 201 sin cuerpo
+    const texto = await res.text();
+    return texto ? JSON.parse(texto) : null;
   };
 }
 
