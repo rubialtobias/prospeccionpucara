@@ -2,6 +2,8 @@
   "_comentario": "Se arma una búsqueda por cada palabra de cada rubro y cada ciudad, con todos los cargos unidos por OR. Una ciudad vacía (\"\") busca en toda Argentina. Google corta los resultados después de unas pocas páginas, así que dividir por ciudad trae más leads. Google ignora lo que pase de 32 palabras: no agregar demasiados cargos.",
   "sitio": "site:ar.linkedin.com/in",
   "cargos": ["dueño", "fundador", "propietario", "socio gerente", "CEO", "owner"],
+  "_excluir": "Apuntamos a pymes: se sacan franquicias y cadenas grandes, que tienen demasiado volumen para un agente.",
+  "excluir": ["remax", "re/max", "keller williams", "century 21", "coldwell banker"],
   "ciudades": ["", "CABA", "Buenos Aires", "Córdoba", "Rosario", "Mendoza", "La Plata", "Mar del Plata", "Tucumán", "Neuquén"],
   "rubros": {
     "inmobiliarias": {

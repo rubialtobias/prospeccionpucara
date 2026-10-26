@@ -55,6 +55,7 @@ export function armarConsultas(config, rubro) {
     for (const ciudad of config.ciudades) {
       const partes = [config.sitio, cargos, comillas(palabra)];
       if (ciudad) partes.push(comillas(ciudad));
+      for (const marca of config.excluir ?? []) partes.push(`-${comillas(marca)}`);
       consultas.push(partes.join(' '));
     }
   }

@@ -5,8 +5,11 @@
 //   node src/calificar.mjs importar   -> aplica data/calificados.json a los leads
 //
 // Formato de calificados.json: lista de
-//   { "linkedin_url", "nombre", "apellido", "cargo", "empresa", "encaja": "si" | "no" | "dudoso", "motivo" }
-// "encaja" = es dueño o socio de un negocio del rubro, con poder de decisión.
+//   { "linkedin_url", "nombre", "apellido", "cargo", "empresa", "encaja": "si" | "no" | "dudoso", "tamano", "motivo" }
+// "encaja" = es dueño o socio de una PYME del rubro, con poder de decisión.
+// Empresas grandes, franquicias (RE/MAX, Keller Williams, Century 21), cadenas o redes con muchas oficinas
+// no encajan: un cliente con muchísimo volumen satura el agente. Si el tamaño no está claro, "dudoso".
+// "tamano" = "pyme" | "grande" | "dudoso".
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -18,7 +21,7 @@ const ARCHIVO_CSV = new URL('leads.csv', DATA);
 const PENDIENTES = new URL('para_calificar.json', DATA);
 const CALIFICADOS = new URL('calificados.json', DATA);
 
-const CAMPOS = ['nombre', 'apellido', 'cargo', 'empresa', 'encaja', 'motivo'];
+const CAMPOS = ['nombre', 'apellido', 'cargo', 'empresa', 'encaja', 'tamano', 'motivo'];
 
 async function exportar() {
   const leads = JSON.parse(await readFile(ARCHIVO_LEADS, 'utf8'));

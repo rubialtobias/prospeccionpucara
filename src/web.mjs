@@ -10,7 +10,7 @@ const NO_SON_WEB_PROPIA = [
   'cuit.com.ar', 'cuitonline.com', 'dateas.com', 'boletinoficial.gob.ar', 'colegioinmobiliario.org.ar',
   'zonajobs.com.ar', 'bumeran.com.ar', 'computrabajo.com', 'indeed.com', 'glassdoor.com', 'glassdoor.com.ar',
   'crunchbase.com', 'rocketreach.co', 'zoominfo.com', 'apollo.io', 'signalhire.com', 'lusha.com',
-  'bebee.com', 'guiadebuenosaires.com.ar', 'guiaurbana.com.ar', 'indicadores.ar', 'isimarkets.com', 'empresite.com.ar',
+  'bebee.com', 'infobel.com', 'guiadebuenosaires.com.ar', 'guiaurbana.com.ar', 'indicadores.ar', 'isimarkets.com', 'empresite.com.ar',
 ];
 
 const CORREO_GRATIS = /@(gmail|hotmail|yahoo|outlook|live|icloud)\.(com|com\.ar|es)$/;
