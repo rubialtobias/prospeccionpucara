@@ -10,6 +10,7 @@
     "panel": "node src/panel.mjs",
     "enriquecer": "node --env-file=.env src/enriquecer.mjs",
     "sincronizar": "node --env-file=.env src/sincronizar.mjs",
+    "usuario": "node --env-file=.env src/usuario.mjs",
     "test": "node --test"
   },
   "engines": {

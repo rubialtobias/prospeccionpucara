@@ -49,14 +49,15 @@ Cuenta de envío: `tobias.pucaratech@gmail.com`, separada de la cuenta personal 
 | `npm run enriquecer` | Busca web, email y WhatsApp de los que encajan |
 | `npm run panel` | Panel local en http://localhost:4321 |
 | `npm run sincronizar` | Sube los leads al panel online y trae lo que se cambió ahí |
+| `npm run usuario -- email` | Pone la contraseña de un usuario del panel online (la pide sin mostrarla) |
 
 ## Panel online (Supabase + Vercel)
 
 Solo pueden entrar los emails de la tabla `acceso` en `supabase/esquema.sql`.
 
 1. **Supabase:** crear el proyecto, pegar `supabase/esquema.sql` en el SQL Editor y correrlo.
-2. **Supabase → Authentication → Sign In / Providers:** desactivar "Allow new users to sign up".
-3. **Supabase → Authentication → Users → Invite user:** invitar a cada email de la tabla `acceso`.
+2. **Supabase → Authentication → Sign In / Providers:** desactivar "Allow new users to sign up" y dejar activado Email.
+3. **Usuarios:** `npm run usuario -- email` para cada email de la tabla `acceso`. Se entra con email y contraseña.
 4. **`.env`:** completar `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API).
 5. **`panel/config.js`:** copiar `panel/config.example.js` y poner la URL y la clave `anon`.
 6. **Vercel:** importar el repo, con Root Directory `panel` y sin comando de build.

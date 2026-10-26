@@ -196,6 +196,9 @@
   }
 
   .login { max-width: 420px; width: 100%; margin: 12vh auto 0; display: grid; gap: 12px; }
+  .login-form { display: grid; gap: 14px; }
+  .login-form .boton { width: 100%; padding-block: 11px; }
+  .login-form .boton:disabled { opacity: 0.6; cursor: wait; }
   .enlace { all: unset; cursor: pointer; color: var(--accent); font-weight: 600; }
   .enlace:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   @media (prefers-reduced-motion: no-preference) { .etapa .barra span, .medidor span { transition: width 0.4s ease; } }
@@ -206,11 +209,17 @@
 <div class="wrap" id="login" hidden>
   <section class="panel login">
     <h1>Prospección Pucará</h1>
-    <p class="gris">Ingresá con tu email y te mandamos un link para entrar. Solo tienen acceso los emails autorizados.</p>
-    <form id="form-login" class="campo">
-      <label for="email-login">Email</label>
-      <input id="email-login" type="email" required autocomplete="email" placeholder="tu@email.com">
-      <button class="boton" type="submit">Enviarme el link</button>
+    <p class="gris">Ingresá con tu email y contraseña. Solo tienen acceso los usuarios autorizados.</p>
+    <form id="form-login" class="login-form">
+      <div class="campo">
+        <label for="email-login">Email</label>
+        <input id="email-login" type="email" required autocomplete="username" placeholder="tu@email.com">
+      </div>
+      <div class="campo">
+        <label for="clave-login">Contraseña</label>
+        <input id="clave-login" type="password" required autocomplete="current-password">
+      </div>
+      <button class="boton" type="submit" id="entrar">Entrar</button>
       <span class="gris" id="login-mensaje" role="status"></span>
     </form>
   </section>
@@ -514,27 +523,36 @@ async function iniciar() {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return mostrar('login');
   }
+  abrirApp();
+}
+
+let refresco = null;
+function abrirApp() {
   mostrar('app');
   cargar();
-  setInterval(cargar, 20000);
+  refresco ??= setInterval(cargar, 20000);
 }
 
 $('#form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = $('#email-login').value.trim().toLowerCase();
-  $('#login-mensaje').textContent = 'Enviando…';
-  // shouldCreateUser: false -> solo entran los usuarios invitados desde Supabase
-  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: location.origin } });
-  $('#login-mensaje').textContent = !error
-    ? `Listo. Revisá ${email} y abrí el link desde este mismo dispositivo.`
-    : /rate limit|security purposes|seconds/i.test(error.message)
-      ? 'Se pidieron muchos links seguidos. Esperá unos minutos y probá de nuevo.'
-      : /signups not allowed|not found|not allowed/i.test(error.message)
-        ? 'Ese email no tiene acceso. Pedile a Tobías que te invite.'
-        : `No se pudo enviar el link: ${error.message}`;
+  const password = $('#clave-login').value;
+  $('#entrar').disabled = true;
+  $('#login-mensaje').textContent = 'Entrando…';
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  $('#entrar').disabled = false;
+  if (!error) {
+    $('#login-mensaje').textContent = '';
+    $('#clave-login').value = '';
+    return abrirApp();
+  }
+  $('#login-mensaje').textContent = /invalid login credentials/i.test(error.message)
+    ? 'Email o contraseña incorrectos.'
+    : /rate limit|too many/i.test(error.message)
+      ? 'Demasiados intentos seguidos. Esperá unos minutos y probá de nuevo.'
+      : `No se pudo entrar: ${error.message}`;
 });
 $('#salir').addEventListener('click', async () => { await sb.auth.signOut(); location.reload(); });
-sb?.auth.onAuthStateChange((evento) => { if (evento === 'SIGNED_IN' && !$('#login').hidden) location.reload(); });
 
 function abrir(url) { abierto = url; $('#ficha').hidden = true; pintarTabla(); pintarFicha(); }
 document.addEventListener('click', (e) => {
