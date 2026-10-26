@@ -25,9 +25,9 @@ export const FIRMA_COMPLETA = `${FIRMA}\npucaratechnologies.com · WhatsApp +54 
 function trato(lead) {
   const uno = lead.email_tipo === 'personal' && Boolean(lead.nombre);
   return uno
-    ? { te: 'te', Te: 'Te', interesa: 'te interesa', veas: 'lo veas', querés: 'querés', bandeja: 'llenarte la bandeja', respondé: 'respondé',
+    ? { te: 'te', Te: 'Te', sirve: 'te sirve', llevan: 'llevás', bandeja: 'llenarte la bandeja', Respondé: 'Respondé',
         baja: 'Si no querés que te vuelva a escribir, respondé "no" y no te escribo más.' }
-    : { te: 'les', Te: 'Les', interesa: 'les interesa', veas: 'lo vean', querés: 'quieren', bandeja: 'llenarles la bandeja', respondé: 'respondan',
+    : { te: 'les', Te: 'Les', sirve: 'les sirve', llevan: 'llevan', bandeja: 'llenarles la bandeja', Respondé: 'Respondan',
         baja: 'Si no quieren que les vuelva a escribir, respondan "no" y no les escribo más.' };
 }
 
@@ -83,15 +83,18 @@ export function redactar(lead) {
     FIRMA,
     t.baja,
   ].join('\n\n');
+  // Cada email muestra otro servicio: el primero los agentes, el día 3 automatización y digitalización,
+  // el día 7 todo lo que hace Pucará en una línea. Así cada email sigue teniendo una sola idea.
   const seguimiento1 = [
-    saludoSeguimiento(lead),
-    `${t.Te} escribo de nuevo por si el email anterior quedó tapado. Si ${t.interesa}, con 15 minutos alcanza para que ${t.veas} funcionando con una de sus propiedades.`,
+    saludo(lead),
+    `${t.Te} escribo de nuevo con otra idea. Además de responder consultas, en inmobiliarias solemos automatizar lo que se hace a mano: el seguimiento de cada interesado, los recordatorios de visitas y pasar las consultas a una planilla o sistema ordenado, para que no se pierda ninguna.`,
+    `¿Hoy cómo ${t.llevan} eso? Si ${t.sirve}, en 15 minutos ${t.te} muestro un ejemplo.`,
     FIRMA_COMPLETA,
     t.baja,
   ].join('\n\n');
   const seguimiento2 = [
     saludoSeguimiento(lead),
-    `Este es mi último mensaje para no ${t.bandeja}. Si en algún momento ${t.querés} ver cómo funciona, ${t.respondé} este email y lo coordinamos.`,
+    `Este es mi último mensaje para no ${t.bandeja}. Si en algún momento ${t.sirve}, en Pucará hacemos asistentes de IA, automatizaciones, sistemas de gestión a medida y páginas web. ${t.Respondé} este email y lo vemos.`,
     FIRMA_COMPLETA,
   ].join('\n\n');
   return { asunto: g.asunto, cuerpo, seguimiento1, seguimiento2, variante: variante(lead), estado: 'pendiente', creado: new Date().toISOString() };

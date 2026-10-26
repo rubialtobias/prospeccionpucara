@@ -22,7 +22,9 @@ test('email al equipo en plural y a una persona en singular', () => {
   assert.match(g.cuerpo, /respondan "no"/);
   const p = redactar(personal);
   assert.match(p.cuerpo, /¿Te muestro/);
-  assert.match(p.seguimiento1, /lo veas/);
+  assert.match(p.seguimiento1, /Te escribo de nuevo con otra idea[\s\S]*¿Hoy cómo llevás eso\? Si te sirve, en 15 minutos te muestro/);
+  assert.match(g.seguimiento1, /^Hola, equipo de Merello Bas Propiedades:[\s\S]*¿Hoy cómo llevan eso\? Si les sirve, en 15 minutos les muestro/);
+  assert.match(g.seguimiento2, /asistentes de IA, automatizaciones, sistemas de gestión a medida y páginas web\. Respondan/);
 });
 
 test('nunca afirma que no tienen asistente, sin links y corto', () => {
