@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prospección Pucará</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: barra superior, embudo de 6 etapas en una fila, luego rubros + pendientes, y la tabla de leads con su ficha lateral */
+  :root {
+    --bg: #f5f7f6;
+    --surface: #ffffff;
+    --ink: #17231f;
+    --muted: #5d6b66;
+    --line: #dfe5e2;
+    --accent: #0f6b5c;
+    --accent-soft: #dcefe9;
+    --ok: #1d7a3e;   --ok-soft: #dff3e5;
+    --warn: #9a6200; --warn-soft: #fbefd6;
+    --bad: #b3382c;  --bad-soft: #f8e1de;
+    --info: #2f5f9e; --info-soft: #e1ebf8;
+    --font-display: "Archivo", "Segoe UI", system-ui, sans-serif;
+    --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101614; --surface: #172019; --ink: #e5ece9; --muted: #95a39e; --line: #2a3531;
+      --accent: #4fc2a9; --accent-soft: #163a32;
+      --ok: #6fd393; --ok-soft: #173a24; --warn: #e8b45a; --warn-soft: #3d2f14;
+      --bad: #f08a7e; --bad-soft: #43201c; --info: #8ab4ee; --info-soft: #1b2c44;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101614; --surface: #172019; --ink: #e5ece9; --muted: #95a39e; --line: #2a3531;
+    --accent: #4fc2a9; --accent-soft: #163a32;
+    --ok: #6fd393; --ok-soft: #173a24; --warn: #e8b45a; --warn-soft: #3d2f14;
+    --bad: #f08a7e; --bad-soft: #43201c; --info: #8ab4ee; --info-soft: #1b2c44;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 var(--font-body); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 20px; }
+  h1, h2 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+  h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+  header .meta { color: var(--muted); font-size: 13px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); display: inline-block; margin-right: 6px; }
+  .dot.off { background: var(--bad); }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+
+  /* Embudo */
+  .embudo { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; padding: 0; overflow: hidden; }
+  .etapa { padding: 14px 16px 16px; border-left: 1px solid var(--line); display: grid; gap: 6px; align-content: start; }
+  .etapa:first-child { border-left: 0; }
+  .etapa .nombre { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .etapa .valor { font-family: var(--font-display); font-size: 30px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+  .etapa .barra { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+  .etapa .barra span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+  .etapa .conv { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+  @media (max-width: 900px) {
+    .embudo { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .etapa:nth-child(4) { border-left: 0; }
+    .etapa:nth-child(n+4) { border-top: 1px solid var(--line); }
+  }
+  @media (max-width: 480px) {
+    .embudo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .etapa:nth-child(4) { border-left: 1px solid var(--line); }
+    .etapa:nth-child(odd) { border-left: 0; }
+    .etapa:nth-child(n+3) { border-top: 1px solid var(--line); }
+  }
+
+  .fila { display: grid; grid-template-columns: 1.3fr 1fr 0.8fr; gap: 20px; }
+  @media (max-width: 900px) { .fila { grid-template-columns: 1fr; } }
+  .panel > h2 { margin-bottom: 12px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  td.n, th.n { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .scroll { overflow-x: auto; }
+
+  .hoy .grande { font-family: var(--font-display); font-size: 36px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .hoy .grande small { font-size: 16px; color: var(--muted); font-weight: 500; }
+  .medidor { height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; margin: 10px 0 8px; }
+  .medidor span { display: block; height: 100%; background: var(--accent); }
+  .nota-chica { font-size: 13px; color: var(--muted); }
+
+  .lista { display: grid; gap: 8px; }
+  .lista button { all: unset; cursor: pointer; display: grid; gap: 2px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); }
+  .lista button:hover, .lista button:focus-visible { border-color: var(--accent); }
+  .lista .sub { font-size: 13px; color: var(--muted); }
+  .vacio { color: var(--muted); font-size: 14px; padding: 6px 0; }
+
+  /* Pastillas de estado */
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; background: var(--line); color: var(--ink); }
+  .pill.si, .pill.reunion, .pill.cliente { background: var(--ok-soft); color: var(--ok); }
+  .pill.dudoso, .pill.seguimiento { background: var(--warn-soft); color: var(--warn); }
+  .pill.no, .pill.descartado, .pill.no_interesado { background: var(--bad-soft); color: var(--bad); }
+  .pill.enviado, .pill.con_email { background: var(--info-soft); color: var(--info); }
+  .pill.respondio { background: var(--accent); color: var(--surface); }
+
+  /* Filtros y tabla de leads */
+  .filtros { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; align-items: center; }
+  .filtros h2 { margin-right: auto; }
+  input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #buscar { min-width: 0; width: 220px; max-width: 100%; }
+  #tabla tbody tr { cursor: pointer; }
+  #tabla tbody tr:hover td { background: var(--accent-soft); }
+  #tabla tbody tr.activo td { background: var(--accent-soft); }
+  .quien { font-weight: 600; }
+  .gris { color: var(--muted); font-size: 13px; }
+  a { color: var(--accent); }
+
+  /* Ficha lateral */
+  .ficha { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); background: var(--surface); border-left: 1px solid var(--line); box-shadow: -12px 0 32px rgba(0,0,0,0.12); padding: 20px; padding-top: calc(20px + env(safe-area-inset-top, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); overflow-y: auto; display: grid; gap: 16px; align-content: start; z-index: 20; }
+  .ficha header { align-items: start; }
+  .ficha h3 { font-family: var(--font-display); font-size: 20px; margin: 0; }
+  .cerrar { all: unset; cursor: pointer; font-size: 22px; line-height: 1; padding: 4px 8px; border-radius: 6px; color: var(--muted); }
+  .cerrar:hover { color: var(--ink); }
+  dl { display: grid; grid-template-columns: 110px 1fr; gap: 6px 12px; margin: 0; font-size: 14px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .snippet { font-size: 13px; color: var(--muted); background: var(--bg); border-radius: 8px; padding: 10px; }
+  .campo { display: grid; gap: 6px; }
+  .campo label { font-size: 13px; font-weight: 600; }
+  textarea { min-height: 80px; resize: vertical; }
+  .boton { font: inherit; font-weight: 600; background: var(--accent); color: var(--surface); border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; justify-self: start; }
+  .guardado { font-size: 13px; color: var(--ok); }
+  .historial { display: grid; gap: 6px; font-size: 13px; }
+  .historial div { display: flex; gap: 8px; }
+  .historial .fecha { font-family: var(--font-mono); color: var(--muted); white-space: nowrap; }
+  .login { max-width: 420px; width: 100%; margin: 12vh auto 0; display: grid; gap: 12px; }
+  .enlace { all: unset; cursor: pointer; color: var(--accent); font-weight: 600; }
+  .enlace:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: no-preference) { .etapa .barra span, .medidor span { transition: width 0.4s ease; } }
+</style>
+</head>
+<body>
+<!-- Login del panel online. En la versión local (npm run panel) no aparece. -->
+<div class="wrap" id="login" hidden>
+  <section class="panel login">
+    <h1>Prospección Pucará</h1>
+    <p class="gris">Ingresá con tu email y te mandamos un link para entrar. Solo tienen acceso los emails autorizados.</p>
+    <form id="form-login" class="campo">
+      <label for="email-login">Email</label>
+      <input id="email-login" type="email" required autocomplete="email" placeholder="tu@email.com">
+      <button class="boton" type="submit">Enviarme el link</button>
+      <span class="gris" id="login-mensaje" role="status"></span>
+    </form>
+  </section>
+</div>
+
+<div class="wrap" id="app">
+  <header>
+    <h1>Prospección Pucará</h1>
+    <div class="meta">
+      <span id="conexion"><span class="dot"></span>Conectado</span>
+      <span>Actualizado <span id="actualizado" class="num">—</span></span>
+      <button class="enlace" id="salir" hidden>Salir</button>
+    </div>
+  </header>
+
+  <section class="panel embudo" id="embudo" aria-label="Embudo"></section>
+
+  <div class="fila">
+    <section class="panel">
+      <h2>Por rubro</h2>
+      <div class="scroll"><table id="rubros"></table></div>
+    </section>
+    <section class="panel">
+      <h2>Para responder</h2>
+      <div class="lista" id="pendientes"></div>
+    </section>
+    <section class="panel hoy">
+      <h2>Envíos de hoy</h2>
+      <div class="grande"><span id="hoy-enviados">0</span> <small>de <span id="hoy-limite">10</span></small></div>
+      <div class="medidor"><span id="hoy-barra" style="width:0%"></span></div>
+      <div class="nota-chica" id="hoy-texto"></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="filtros">
+      <h2>Leads <span class="num" id="contador"></span></h2>
+      <input id="buscar" type="search" placeholder="Buscar nombre o empresa" aria-label="Buscar nombre o empresa">
+      <select id="f-encaja" aria-label="Filtrar por calificación">
+        <option value="">Toda calificación</option>
+        <option value="si">Encajan</option>
+        <option value="dudoso">Dudosos</option>
+        <option value="no">No encajan</option>
+        <option value="sin">Sin calificar</option>
+      </select>
+      <select id="f-estado" aria-label="Filtrar por estado"><option value="">Todo estado</option></select>
+      <select id="f-rubro" aria-label="Filtrar por rubro"><option value="">Todo rubro</option></select>
+    </div>
+    <div class="scroll">
+      <table id="tabla">
+        <thead><tr><th>Persona</th><th>Empresa</th><th>Email</th><th>Ciudad</th><th>Califica</th><th>Estado</th><th>Último contacto</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<aside class="ficha" id="ficha" hidden aria-label="Ficha del lead"></aside>
+
+<!-- config.js solo existe en la versión online: define window.PANEL_CONFIG con la URL y la clave pública de Supabase -->
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const NOMBRE_ESTADO = {
+  nuevo: 'Nuevo', con_email: 'Con email', enviado: 'Enviado', seguimiento: 'En seguimiento',
+  respondio: 'Respondió', reunion: 'Reunión', cliente: 'Cliente', no_interesado: 'No le interesa', descartado: 'Descartado',
+};
+const NOMBRE_ENCAJA = { si: 'Encaja', dudoso: 'Dudoso', no: 'No encaja' };
+const CONTACTADO = ['enviado', 'seguimiento', 'respondio', 'reunion', 'cliente', 'no_interesado'];
+const RESPONDIO = ['respondio', 'reunion', 'cliente', 'no_interesado'];
+const REUNION = ['reunion', 'cliente'];
+
+let datos = { leads: [], estados: [], limiteDiario: 10 };
+let abierto = null;
+
+const $ = (s) => document.querySelector(s);
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const quien = (l) => [l.nombre, l.apellido].filter(Boolean).join(' ') || 'Sin nombre';
+const hoyIso = () => new Date().toISOString().slice(0, 10);
+const envios = (l) => (l.historial ?? []).filter((h) => h.tipo === 'envio');
+const ultimoContacto = (l) => (l.historial ?? []).filter((h) => h.tipo === 'envio' || h.tipo === 'respuesta').at(-1);
+const fecha = (iso) => iso ? new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : '';
+const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+
+function pintarEmbudo() {
+  const L = datos.leads;
+  const etapas = [
+    ['Encontrados', L.length],
+    ['Encajan', L.filter((l) => l.encaja === 'si').length],
+    ['Con email', L.filter((l) => l.email).length],
+    ['Enviados', L.filter((l) => CONTACTADO.includes(l.estado)).length],
+    ['Respondieron', L.filter((l) => RESPONDIO.includes(l.estado)).length],
+    ['Reuniones', L.filter((l) => REUNION.includes(l.estado)).length],
+  ];
+  const total = etapas[0][1];
+  $('#embudo').innerHTML = etapas.map(([nombre, n], i) => `
+    <div class="etapa">
+      <div class="nombre">${nombre}</div>
+      <div class="valor">${n}</div>
+      <div class="barra"><span style="width:${pct(n, total)}%"></span></div>
+      <div class="conv">${i === 0 ? 'total' : `${pct(n, etapas[i - 1][1])}% del paso anterior`}</div>
+    </div>`).join('');
+}
+
+function pintarRubros() {
+  const rubros = [...new Set(datos.leads.map((l) => l.rubro))];
+  const fila = (r) => {
+    const L = datos.leads.filter((l) => l.rubro === r);
+    const c = (f) => L.filter(f).length;
+    return `<tr><td>${esc(r)}</td><td class="n">${L.length}</td><td class="n">${c((l) => l.encaja === 'si')}</td><td class="n">${c((l) => CONTACTADO.includes(l.estado))}</td><td class="n">${c((l) => RESPONDIO.includes(l.estado))}</td></tr>`;
+  };
+  $('#rubros').innerHTML = `<thead><tr><th>Rubro</th><th class="n">Leads</th><th class="n">Encajan</th><th class="n">Enviados</th><th class="n">Respuestas</th></tr></thead><tbody>${rubros.map(fila).join('')}</tbody>`;
+}
+
+function pintarPendientes() {
+  const p = datos.leads.filter((l) => l.estado === 'respondio');
+  $('#pendientes').innerHTML = p.length
+    ? p.map((l) => `<button data-url="${esc(l.linkedin_url)}"><span class="quien">${esc(quien(l))}</span><span class="sub">${esc(l.empresa)} · respondió ${fecha(ultimoContacto(l)?.fecha)}</span></button>`).join('')
+    : '<div class="vacio">Nadie esperando respuesta. Cuando alguien conteste un email, aparece acá.</div>';
+}
+
+function pintarHoy() {
+  const n = datos.leads.reduce((s, l) => s + envios(l).filter((e) => e.fecha.startsWith(hoyIso())).length, 0);
+  const lim = datos.limiteDiario;
+  $('#hoy-enviados').textContent = n;
+  $('#hoy-limite').textContent = lim;
+  $('#hoy-barra').style.width = `${Math.min(100, pct(n, lim))}%`;
+  const listos = datos.leads.filter((l) => l.estado === 'con_email').length;
+  $('#hoy-texto').textContent = n === 0 && !datos.leads.some((l) => envios(l).length)
+    ? `Los envíos empiezan cuando termine el calentamiento de la cuenta. ${listos} leads con email listos.`
+    : `Quedan ${Math.max(0, lim - n)} envíos hoy. ${listos} leads con email esperando.`;
+}
+
+function filtrados() {
+  const q = $('#buscar').value.trim().toLowerCase();
+  const fe = $('#f-encaja').value, fs = $('#f-estado').value, fr = $('#f-rubro').value;
+  return datos.leads.filter((l) =>
+    (!q || `${quien(l)} ${l.empresa}`.toLowerCase().includes(q)) &&
+    (!fe || (fe === 'sin' ? !l.encaja : l.encaja === fe)) &&
+    (!fs || l.estado === fs) &&
+    (!fr || l.rubro === fr));
+}
+
+function pintarTabla() {
+  const lista = filtrados();
+  $('#contador').textContent = `${lista.length}`;
+  $('#tabla tbody').innerHTML = lista.length ? lista.map((l) => `
+    <tr data-url="${esc(l.linkedin_url)}" class="${l.linkedin_url === abierto ? 'activo' : ''}" tabindex="0">
+      <td><div class="quien">${esc(quien(l))}</div><div class="gris">${esc(l.cargo)}</div></td>
+      <td>${esc(l.empresa) || '<span class="gris">—</span>'}</td>
+      <td>${esc(l.email) || '<span class="gris">—</span>'}</td>
+      <td>${esc(l.ubicacion) || '<span class="gris">—</span>'}</td>
+      <td>${l.encaja ? `<span class="pill ${esc(l.encaja)}">${NOMBRE_ENCAJA[l.encaja] ?? esc(l.encaja)}</span>` : '<span class="gris">Sin calificar</span>'}</td>
+      <td><span class="pill ${esc(l.estado)}">${NOMBRE_ESTADO[l.estado] ?? esc(l.estado)}</span></td>
+      <td class="gris">${fecha(ultimoContacto(l)?.fecha) || '—'}</td>
+    </tr>`).join('') : '<tr><td colspan="7" class="vacio">Ningún lead coincide con estos filtros.</td></tr>';
+}
+
+function llenarSelect(sel, valores, nombres) {
+  const actual = sel.value;
+  const primera = sel.options[0].outerHTML;
+  sel.innerHTML = primera + valores.map((v) => `<option value="${esc(v)}">${esc(nombres?.[v] ?? v)}</option>`).join('');
+  sel.value = valores.includes(actual) ? actual : '';
+}
+
+function pintarFicha() {
+  const f = $('#ficha');
+  const l = datos.leads.find((x) => x.linkedin_url === abierto);
+  if (!l) { f.hidden = true; return; }
+  if (!f.hidden && document.activeElement && f.contains(document.activeElement)) return; // no pisar lo que se está editando
+  const hist = (l.historial ?? []).slice().reverse();
+  f.innerHTML = `
+    <header>
+      <div><h3>${esc(quien(l))}</h3><div class="gris">${esc(l.cargo)}${l.empresa ? ' · ' + esc(l.empresa) : ''}</div></div>
+      <button class="cerrar" id="cerrar" aria-label="Cerrar ficha">×</button>
+    </header>
+    <dl>
+      <dt>Califica</dt><dd>${l.encaja ? `<span class="pill ${esc(l.encaja)}">${NOMBRE_ENCAJA[l.encaja]}</span> ${esc(l.motivo)}` : 'Sin calificar'}</dd>
+      <dt>Email</dt><dd>${l.email ? `${esc(l.email)} <span class="gris">(${l.email_tipo === 'personal' ? 'personal' : 'genérico'})</span>` : `<span class="gris">${l.web_revisada ? 'No encontramos' : 'Todavía no lo buscamos'}</span>`}</dd>
+      <dt>Web</dt><dd>${l.web ? `<a href="${esc(l.web)}" target="_blank" rel="noopener">${esc(l.web.replace(/^https?:\/\/(www\.)?/, ''))}</a>` : '<span class="gris">—</span>'}${l.web_revisada?.error ? ` <span class="gris">${esc(l.web_revisada.error)}</span>` : ''}</dd>
+      <dt>WhatsApp</dt><dd class="num">${esc(l.whatsapp) || '<span class="gris">—</span>'}</dd>
+      ${l.web_revisada && !l.web_revisada.error ? `<dt>Su web</dt><dd>${[
+        l.web_revisada.boton_whatsapp ? 'Botón de WhatsApp' : 'Sin botón de WhatsApp',
+        l.web_revisada.chat ? 'Tiene chat' : 'Sin chat ni bot',
+        l.web_revisada.formulario ? 'Formulario' : 'Sin formulario',
+        l.web_revisada.plataforma ? `Hecha con ${esc(l.web_revisada.plataforma)}` : '',
+        `Carga en ${l.web_revisada.segundos} s`,
+      ].filter(Boolean).join(' · ')}</dd>` : ''}
+      <dt>Ciudad</dt><dd>${esc(l.ubicacion) || '—'}</dd>
+      <dt>Rubro</dt><dd>${esc(l.rubro)}</dd>
+      <dt>LinkedIn</dt><dd><a href="${esc(l.linkedin_url)}" target="_blank" rel="noopener">Ver perfil</a></dd>
+      <dt>Encontrado</dt><dd class="num">${esc(l.encontrado)}</dd>
+    </dl>
+    <div class="snippet">${esc(l.snippet)}</div>
+    <div class="campo">
+      <label for="estado">Estado</label>
+      <select id="estado">${datos.estados.map((e) => `<option value="${e}" ${e === l.estado ? 'selected' : ''}>${NOMBRE_ESTADO[e] ?? e}</option>`).join('')}</select>
+    </div>
+    <div class="campo">
+      <label for="nota">Nota</label>
+      <textarea id="nota" placeholder="Ej: pidió que lo llamemos el jueves">${esc(l.nota)}</textarea>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center"><button class="boton" id="guardar">Guardar</button><span class="guardado" id="guardado"></span></div>
+    <div class="campo">
+      <label>Historial</label>
+      <div class="historial">${hist.length ? hist.map((h) => `<div><span class="fecha">${fecha(h.fecha)}</span><span>${h.tipo === 'estado' ? `Pasó de ${NOMBRE_ESTADO[h.de] ?? h.de} a ${NOMBRE_ESTADO[h.a] ?? h.a}` : h.tipo === 'envio' ? `Email enviado: ${esc(h.asunto ?? '')}` : h.tipo === 'respuesta' ? 'Respondió' : esc(h.tipo)}</span></div>`).join('') : '<span class="gris">Sin movimientos todavía.</span>'}</div>
+    </div>`;
+  f.hidden = false;
+  $('#cerrar').onclick = () => { abierto = null; f.hidden = true; pintarTabla(); };
+  $('#guardar').onclick = guardar;
+}
+
+// Dos fuentes de datos: el servidor local (npm run panel) o Supabase (panel online)
+const CONFIG = window.PANEL_CONFIG;
+const sb = CONFIG?.supabaseUrl && window.supabase ? window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey) : null;
+const ESTADOS = ['nuevo', 'con_email', 'enviado', 'seguimiento', 'respondio', 'reunion', 'cliente', 'no_interesado', 'descartado'];
+
+const fuente = sb ? {
+  async leer() {
+    const leads = [];
+    for (let desde = 0; ; desde += 1000) {
+      const { data, error } = await sb.from('leads').select('datos, estado, nota, historial, actualizado_panel').range(desde, desde + 999);
+      if (error) throw error;
+      leads.push(...data.map((r) => ({ ...r.datos, estado: r.estado, nota: r.nota, historial: r.historial, actualizado_panel: r.actualizado_panel })));
+      if (data.length < 1000) break;
+    }
+    return { leads, estados: ESTADOS, limiteDiario: CONFIG.limiteDiario ?? 10 };
+  },
+  async guardar({ linkedin_url, estado, nota }) {
+    const lead = datos.leads.find((l) => l.linkedin_url === linkedin_url);
+    const ahora = new Date().toISOString();
+    const historial = estado !== lead.estado
+      ? [...(lead.historial ?? []), { fecha: ahora, tipo: 'estado', de: lead.estado, a: estado }]
+      : lead.historial ?? [];
+    const cambios = { estado, nota: nota.slice(0, 2000), historial, actualizado_panel: ahora };
+    const { error } = await sb.from('leads').update(cambios).eq('linkedin_url', linkedin_url);
+    if (error) throw error;
+    return { ...lead, ...cambios };
+  },
+} : {
+  async leer() {
+    const r = await fetch('/api/leads');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  },
+  async guardar(cuerpo) {
+    const r = await fetch('/api/leads/estado', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+    const res = await r.json();
+    if (!r.ok) throw new Error(res.error);
+    return res;
+  },
+};
+
+async function guardar() {
+  let res;
+  try {
+    res = await fuente.guardar({ linkedin_url: abierto, estado: $('#estado').value, nota: $('#nota').value });
+  } catch (e) {
+    $('#guardado').textContent = `No se pudo guardar: ${e.message}`;
+    return;
+  }
+  const i = datos.leads.findIndex((l) => l.linkedin_url === abierto);
+  datos.leads[i] = res;
+  document.activeElement?.blur();
+  pintar();
+  $('#guardado').textContent = 'Guardado';
+}
+
+function pintar() {
+  llenarSelect($('#f-estado'), datos.estados, NOMBRE_ESTADO);
+  llenarSelect($('#f-rubro'), [...new Set(datos.leads.map((l) => l.rubro))]);
+  pintarEmbudo(); pintarRubros(); pintarPendientes(); pintarHoy(); pintarTabla(); pintarFicha();
+}
+
+async function cargar() {
+  try {
+    datos = await fuente.leer();
+    $('#conexion').innerHTML = '<span class="dot"></span>Conectado';
+    $('#actualizado').textContent = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    pintar();
+  } catch (e) {
+    $('#conexion').innerHTML = sb
+      ? `<span class="dot off"></span>No se pudieron leer los datos: ${esc(e.message)}`
+      : '<span class="dot off"></span>Sin conexión: ¿está corriendo npm run panel?';
+  }
+}
+
+function mostrar(vista) {
+  $('#login').hidden = vista !== 'login';
+  $('#app').hidden = vista !== 'app';
+  $('#salir').hidden = !sb;
+}
+
+async function iniciar() {
+  if (CONFIG?.supabaseUrl && !sb) {
+    $('#conexion').innerHTML = '<span class="dot off"></span>No cargó la librería de Supabase. Revisá la conexión y recargá.';
+    return;
+  }
+  if (sb) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return mostrar('login');
+  }
+  mostrar('app');
+  cargar();
+  setInterval(cargar, 20000);
+}
+
+$('#form-login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = $('#email-login').value.trim().toLowerCase();
+  $('#login-mensaje').textContent = 'Enviando…';
+  // shouldCreateUser: false -> solo entran los usuarios invitados desde Supabase
+  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: location.origin } });
+  $('#login-mensaje').textContent = error
+    ? 'Ese email no tiene acceso. Pedile a Tobías que te invite.'
+    : `Listo. Revisá ${email} y abrí el link desde este mismo dispositivo.`;
+});
+$('#salir').addEventListener('click', async () => { await sb.auth.signOut(); location.reload(); });
+sb?.auth.onAuthStateChange((evento) => { if (evento === 'SIGNED_IN' && !$('#login').hidden) location.reload(); });
+
+function abrir(url) { abierto = url; $('#ficha').hidden = true; pintarTabla(); pintarFicha(); }
+document.addEventListener('click', (e) => {
+  const fila = e.target.closest('#tabla tbody tr[data-url], #pendientes button[data-url]');
+  if (fila) abrir(fila.dataset.url);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.matches('#tabla tbody tr[data-url]')) abrir(e.target.dataset.url);
+  if (e.key === 'Escape' && abierto) { abierto = null; $('#ficha').hidden = true; pintarTabla(); }
+});
+['#buscar', '#f-encaja', '#f-estado', '#f-rubro'].forEach((s) => $(s).addEventListener('input', pintarTabla));
+
+iniciar();
+</script>
+</body>
+</html>

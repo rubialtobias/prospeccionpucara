@@ -1,0 +1,18 @@
+{
+  "name": "pucara-prospeccion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Prospección de clientes para Pucará Technologies: búsqueda en LinkedIn vía Google, enriquecimiento y envío de emails.",
+  "scripts": {
+    "buscar": "node --env-file=.env src/buscar.mjs",
+    "buscar:prueba": "node src/buscar.mjs --dry-run",
+    "panel": "node src/panel.mjs",
+    "enriquecer": "node --env-file=.env src/enriquecer.mjs",
+    "sincronizar": "node --env-file=.env src/sincronizar.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20.6"
+  }
+}
