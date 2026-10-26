@@ -137,6 +137,19 @@
   .historial .fecha { font-family: var(--font-mono); color: var(--muted); white-space: nowrap; }
   .conv .corto { display: none; }
 
+  .correo { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+  .correo-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .correo h4 { margin: 0; font-family: var(--font-display); font-size: 15px; }
+  .correo input, .correo textarea { background: var(--surface); width: 100%; }
+  .correo textarea { line-height: 1.45; }
+  .correo textarea:disabled, .correo input:disabled { opacity: 0.75; }
+  .correo summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+  .correo details[open] summary { margin-bottom: 10px; }
+  .correo details .campo + .campo { margin-top: 10px; }
+  .correo p { margin: 0; font-size: 13px; }
+  .correo-acciones { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .boton.secundario { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+
   /* Celular: embudo como lista, leads como tarjetas, ficha a pantalla completa */
   @media (max-width: 640px) {
     .wrap { gap: 14px; padding-block: 14px 32px; }
@@ -159,7 +172,7 @@
     .panel { padding: 14px; }
     .hoy .grande { font-size: 28px; }
 
-    .filtros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .filtros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .filtros h2 { grid-column: 1 / -1; }
     #buscar { grid-column: 1 / -1; width: 100%; }
     .filtros select { width: 100%; min-width: 0; padding-inline: 6px; }
@@ -193,6 +206,7 @@
     dl { grid-template-columns: 84px minmax(0, 1fr); }
     .boton { width: 100%; padding-block: 12px; text-align: center; }
     .ficha .acciones { flex-direction: column; align-items: stretch !important; }
+    .correo { padding: 12px; }
   }
 
   .login { max-width: 420px; width: 100%; margin: 12vh auto 0; display: grid; gap: 12px; }
@@ -267,6 +281,12 @@
       </select>
       <select id="f-estado" aria-label="Filtrar por estado"><option value="">Estado</option></select>
       <select id="f-rubro" aria-label="Filtrar por rubro"><option value="">Rubro</option></select>
+      <select id="f-borrador" aria-label="Filtrar por email">
+        <option value="">Email</option>
+        <option value="pendiente">Por aprobar</option>
+        <option value="aprobado">Aprobados</option>
+        <option value="descartado">Descartados</option>
+      </select>
     </div>
     <div class="scroll leads">
       <table id="tabla">
@@ -348,20 +368,23 @@ function pintarHoy() {
   $('#hoy-enviados').textContent = n;
   $('#hoy-limite').textContent = lim;
   $('#hoy-barra').style.width = `${Math.min(100, pct(n, lim))}%`;
-  const listos = datos.leads.filter((l) => l.estado === 'con_email' && l.encaja === 'si').length;
-  $('#hoy-texto').textContent = n === 0 && !datos.leads.some((l) => envios(l).length)
-    ? `Los envíos empiezan cuando termine el calentamiento de la cuenta. ${listos} leads con email listos.`
-    : `Quedan ${Math.max(0, lim - n)} envíos hoy. ${listos} leads con email esperando.`;
+  const sinEnviar = datos.leads.filter((l) => l.estado === 'con_email' && l.encaja === 'si');
+  const aprobados = sinEnviar.filter((l) => l.borrador?.estado === 'aprobado').length;
+  const porAprobar = sinEnviar.filter((l) => l.borrador?.estado === 'pendiente').length;
+  const listos = aprobados === 1 ? '1 email aprobado listo para salir' : `${aprobados} emails aprobados listos para salir`;
+  $('#hoy-texto').textContent = `${listos}${porAprobar ? `, ${porAprobar} por aprobar` : ''}.` +
+    (n === 0 ? '' : ` Quedan ${Math.max(0, lim - n)} envíos hoy.`);
 }
 
 function filtrados() {
   const q = $('#buscar').value.trim().toLowerCase();
-  const fe = $('#f-encaja').value, fs = $('#f-estado').value, fr = $('#f-rubro').value;
+  const fe = $('#f-encaja').value, fs = $('#f-estado').value, fr = $('#f-rubro').value, fb = $('#f-borrador').value;
   return datos.leads.filter((l) =>
     (!q || `${quien(l)} ${l.empresa}`.toLowerCase().includes(q)) &&
     (!fe || (fe === 'sin' ? !l.encaja : l.encaja === fe)) &&
     (!fs || l.estado === fs) &&
-    (!fr || l.rubro === fr));
+    (!fr || l.rubro === fr) &&
+    (!fb || l.borrador?.estado === fb));
 }
 
 function pintarTabla() {
@@ -415,6 +438,7 @@ function pintarFicha() {
       <dt>Encontrado</dt><dd class="num">${esc(l.encontrado)}</dd>
     </dl>
     <div class="snippet">${esc(l.snippet)}</div>
+    ${l.borrador ? fichaCorreo(l) : ''}
     <div class="campo">
       <label for="estado">Estado</label>
       <select id="estado">${datos.estados.map((e) => `<option value="${e}" ${e === l.estado ? 'selected' : ''}>${NOMBRE_ESTADO[e] ?? e}</option>`).join('')}</select>
@@ -431,6 +455,68 @@ function pintarFicha() {
   f.hidden = false;
   $('#cerrar').onclick = () => { abierto = null; f.hidden = true; pintarTabla(); };
   $('#guardar').onclick = guardar;
+  if (l.borrador && !yaEnviado(l)) {
+    $('#aprobar').onclick = () => guardarBorrador('aprobado');
+    $('#descartar-borrador').onclick = () => guardarBorrador('descartado');
+    $('#pendiente-borrador')?.addEventListener('click', () => guardarBorrador('pendiente'));
+  }
+}
+
+const NOMBRE_BORRADOR = { pendiente: 'Por aprobar', aprobado: 'Aprobado', descartado: 'Descartado' };
+const yaEnviado = (l) => envios(l).length > 0;
+
+function fichaCorreo(l) {
+  const b = l.borrador;
+  const enviado = yaEnviado(l);
+  const bloqueo = enviado ? 'disabled' : '';
+  const estado = enviado ? 'Enviado' : NOMBRE_BORRADOR[b.estado] ?? b.estado;
+  const clase = enviado ? 'enviado' : { pendiente: 'seguimiento', aprobado: 'si', descartado: 'no' }[b.estado];
+  return `
+    <section class="correo" aria-label="Email a enviar">
+      <div class="correo-cab"><h4>Email a enviar</h4><span class="pill ${clase}">${estado}</span></div>
+      <div class="campo"><label for="b-asunto">Asunto</label><input id="b-asunto" value="${esc(b.asunto)}" ${bloqueo}></div>
+      <div class="campo"><label for="b-cuerpo">Mensaje</label><textarea id="b-cuerpo" rows="13" ${bloqueo}>${esc(b.cuerpo)}</textarea></div>
+      <details>
+        <summary>Seguimientos, si no responde (día 3 y día 7)</summary>
+        <div class="campo"><label for="b-seg1">Día 3</label><textarea id="b-seg1" rows="7" ${bloqueo}>${esc(b.seguimiento1)}</textarea></div>
+        <div class="campo"><label for="b-seg2">Día 7</label><textarea id="b-seg2" rows="6" ${bloqueo}>${esc(b.seguimiento2)}</textarea></div>
+      </details>
+      ${enviado ? '' : `<div class="acciones correo-acciones">
+        <button class="boton" id="aprobar">${b.estado === 'aprobado' ? 'Guardar cambios' : 'Aprobar'}</button>
+        ${b.estado === 'descartado'
+          ? '<button class="boton secundario" id="pendiente-borrador">Volver a por aprobar</button><button hidden id="descartar-borrador"></button>'
+          : '<button class="boton secundario" id="descartar-borrador">Descartar</button>'}
+        <span class="guardado" id="b-guardado"></span>
+      </div>`}
+      ${b.estado === 'aprobado' && !enviado ? '<p class="gris">Sale en el próximo envío diario, según el límite del día.</p>' : ''}
+    </section>`;
+}
+
+async function guardarBorrador(estadoNuevo) {
+  const l = datos.leads.find((x) => x.linkedin_url === abierto);
+  const borrador = {
+    ...l.borrador,
+    asunto: $('#b-asunto').value.trim().slice(0, 200),
+    cuerpo: $('#b-cuerpo').value.slice(0, 5000),
+    seguimiento1: $('#b-seg1').value.slice(0, 3000),
+    seguimiento2: $('#b-seg2').value.slice(0, 3000),
+    estado: estadoNuevo,
+    revisado: new Date().toISOString(),
+  };
+  if (estadoNuevo === 'aprobado' && (!borrador.asunto || !borrador.cuerpo.trim())) {
+    $('#b-guardado').textContent = 'Falta el asunto o el mensaje.';
+    return;
+  }
+  try {
+    const res = await fuente.guardar({ linkedin_url: abierto, borrador });
+    datos.leads[datos.leads.findIndex((x) => x.linkedin_url === abierto)] = res;
+  } catch (e) {
+    $('#b-guardado').textContent = `No se pudo guardar: ${e.message}`;
+    return;
+  }
+  document.activeElement?.blur();
+  pintar();
+  $('#b-guardado').textContent = { aprobado: 'Aprobado', descartado: 'Descartado', pendiente: 'Guardado' }[estadoNuevo];
 }
 
 // Dos fuentes de datos: el servidor local (npm run panel) o Supabase (panel online)
@@ -442,20 +528,27 @@ const fuente = sb ? {
   async leer() {
     const leads = [];
     for (let desde = 0; ; desde += 1000) {
-      const { data, error } = await sb.from('leads').select('datos, estado, nota, historial, actualizado_panel').range(desde, desde + 999);
+      let { data, error } = await sb.from('leads').select('datos, estado, nota, historial, borrador, actualizado_panel').range(desde, desde + 999);
+      // Sin la columna de borradores (falta correr supabase/02-borradores.sql) el panel sigue andando
+      if (error?.code === '42703') ({ data, error } = await sb.from('leads').select('datos, estado, nota, historial, actualizado_panel').range(desde, desde + 999));
       if (error) throw error;
-      leads.push(...data.map((r) => ({ ...r.datos, estado: r.estado, nota: r.nota, historial: r.historial, actualizado_panel: r.actualizado_panel })));
+      leads.push(...data.map((r) => ({ ...r.datos, estado: r.estado, nota: r.nota, historial: r.historial, borrador: r.borrador, actualizado_panel: r.actualizado_panel })));
       if (data.length < 1000) break;
     }
     return { leads, estados: ESTADOS, limiteDiario: CONFIG.limiteDiario ?? 10 };
   },
-  async guardar({ linkedin_url, estado, nota }) {
+  async guardar({ linkedin_url, estado, nota, borrador }) {
     const lead = datos.leads.find((l) => l.linkedin_url === linkedin_url);
     const ahora = new Date().toISOString();
-    const historial = estado !== lead.estado
-      ? [...(lead.historial ?? []), { fecha: ahora, tipo: 'estado', de: lead.estado, a: estado }]
-      : lead.historial ?? [];
-    const cambios = { estado, nota: nota.slice(0, 2000), historial, actualizado_panel: ahora };
+    const cambios = { actualizado_panel: ahora };
+    if (estado !== undefined) {
+      cambios.estado = estado;
+      cambios.historial = estado !== lead.estado
+        ? [...(lead.historial ?? []), { fecha: ahora, tipo: 'estado', de: lead.estado, a: estado }]
+        : lead.historial ?? [];
+    }
+    if (nota !== undefined) cambios.nota = nota.slice(0, 2000);
+    if (borrador !== undefined) cambios.borrador = borrador;
     const { error } = await sb.from('leads').update(cambios).eq('linkedin_url', linkedin_url);
     if (error) throw error;
     return { ...lead, ...cambios };
@@ -563,7 +656,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.matches('#tabla tbody tr[data-url]')) abrir(e.target.dataset.url);
   if (e.key === 'Escape' && abierto) { abierto = null; $('#ficha').hidden = true; pintarTabla(); }
 });
-['#buscar', '#f-encaja', '#f-estado', '#f-rubro'].forEach((s) => $(s).addEventListener('input', pintarTabla));
+['#buscar', '#f-encaja', '#f-estado', '#f-rubro', '#f-borrador'].forEach((s) => $(s).addEventListener('input', pintarTabla));
 
 iniciar();
 </script>

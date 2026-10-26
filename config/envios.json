@@ -1,0 +1,19 @@
+{
+  "_comentario": "Rampa de envíos: el día 1 es el del primer envío real. Cuenta primeros emails y seguimientos juntos. Nunca más de 'maximo' por día desde Gmail gratis.",
+  "rampa": [
+    { "desde_dia": 1, "por_dia": 2 },
+    { "desde_dia": 4, "por_dia": 3 },
+    { "desde_dia": 8, "por_dia": 5 },
+    { "desde_dia": 15, "por_dia": 8 },
+    { "desde_dia": 22, "por_dia": 10 }
+  ],
+  "maximo": 10,
+  "_dias": "Días de la semana en que se envía: 1 = lunes ... 5 = viernes",
+  "dias": [1, 2, 3, 4, 5],
+  "hora_desde": 9,
+  "hora_hasta": 18,
+  "_seguimientos": "Días después del primer email en que sale cada seguimiento, si no respondió",
+  "seguimientos": [3, 7],
+  "_pausa": "Minutos de espera al azar entre un email y el siguiente, para no mandar todo junto",
+  "pausa_minutos": [3, 9]
+}

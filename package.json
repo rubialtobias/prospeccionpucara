@@ -15,5 +15,9 @@
   },
   "engines": {
     "node": ">=20.6"
+  },
+  "dependencies": {
+    "imapflow": "^1.0.171",
+    "nodemailer": "^6.9.16"
   }
 }

@@ -49,6 +49,10 @@ Cuenta de envío: `tobias.pucaratech@gmail.com`, separada de la cuenta personal 
 | `npm run enriquecer` | Busca web, email y WhatsApp de los que encajan |
 | `npm run panel` | Panel local en http://localhost:4321 |
 | `npm run sincronizar` | Sube los leads al panel online y trae lo que se cambió ahí |
+| `node src/redactar.mjs` | Arma los borradores de email para los que encajan y tienen email |
+| `node --env-file=.env src/enviar.mjs --prueba` | Muestra qué se mandaría hoy, sin mandar nada |
+| `node --env-file=.env src/enviar.mjs --muestra` | Te manda a vos mismo un email aprobado para verlo en Gmail |
+| `node --env-file=.env src/enviar.mjs` | Revisa respuestas y manda lo que toca hoy (rampa en `config/envios.json`) |
 | `npm run usuario -- email` | Pone la contraseña de un usuario del panel online (la pide sin mostrarla) |
 
 ## Panel online (Supabase + Vercel)
@@ -65,6 +69,15 @@ Solo pueden entrar los emails de la tabla `acceso` en `supabase/esquema.sql`.
 8. `npm run sincronizar` para subir los leads.
 
 Los datos (`data/`) y el `.env` nunca se suben al repo.
+
+## Envíos
+
+1. Los borradores se aprueban, editan o descartan desde el panel (filtro **Email → Por aprobar**). Solo salen los aprobados.
+2. `config/envios.json` tiene la rampa: 2 por día los primeros 3 días, 3 hasta el día 7, 5 hasta el 14, 8 hasta el 21 y después 10. Cuenta primeros emails y seguimientos juntos. Solo de lunes a viernes, de 9 a 18.
+3. Si alguien responde, deja de recibir seguimientos y aparece en **Para responder**. Si un email rebota, el lead se descarta.
+4. Panel online: correr una vez `supabase/02-borradores.sql` en el SQL Editor de Supabase.
+
+En PowerShell, usar `npm.cmd` en lugar de `npm`.
 
 ## Ajustar las búsquedas
 

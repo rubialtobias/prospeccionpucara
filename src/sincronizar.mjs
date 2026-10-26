@@ -15,7 +15,7 @@ const ARCHIVO_LEADS = new URL('leads.json', DATA);
 const ARCHIVO_CSV = new URL('leads.csv', DATA);
 
 // Lo que el panel puede cambiar: se guarda en columnas propias, no dentro de "datos"
-const CAMPOS_PANEL = ['estado', 'nota', 'historial', 'actualizado_panel'];
+const CAMPOS_PANEL = ['estado', 'nota', 'historial', 'borrador', 'actualizado_panel'];
 
 function cliente() {
   const url = process.env.SUPABASE_URL;
@@ -41,7 +41,7 @@ export function aplicarCambiosDelPanel(leads, remotos) {
     const r = porUrl.get(lead.linkedin_url);
     if (!r?.actualizado_panel) continue;
     if (lead.actualizado_panel && new Date(lead.actualizado_panel) >= new Date(r.actualizado_panel)) continue;
-    Object.assign(lead, { estado: r.estado, nota: r.nota, historial: r.historial, actualizado_panel: r.actualizado_panel });
+    Object.assign(lead, { estado: r.estado, nota: r.nota, historial: r.historial, borrador: r.borrador ?? lead.borrador, actualizado_panel: r.actualizado_panel });
     aplicados++;
   }
   return aplicados;
@@ -55,18 +55,20 @@ export function aFila(lead) {
     estado: lead.estado ?? 'nuevo',
     nota: lead.nota ?? '',
     historial: lead.historial ?? [],
+    borrador: lead.borrador ?? null,
     actualizado_panel: lead.actualizado_panel ?? null,
     actualizado: new Date().toISOString(),
   };
 }
 
-async function main() {
+// Trae los cambios del panel online y sube los leads. La usan también otros scripts (enviar).
+export async function sincronizar() {
   const supabase = cliente();
   const leads = JSON.parse(await readFile(ARCHIVO_LEADS, 'utf8'));
 
   const remotos = [];
   for (let desde = 0; ; desde += 1000) {
-    const pagina = await supabase(`leads?select=linkedin_url,estado,nota,historial,actualizado_panel`, {
+    const pagina = await supabase(`leads?select=linkedin_url,estado,nota,historial,borrador,actualizado_panel`, {
       headers: { Range: `${desde}-${desde + 999}` },
     });
     remotos.push(...pagina);
@@ -85,11 +87,11 @@ async function main() {
       body: JSON.stringify(leads.slice(i, i + 500).map(aFila)),
     });
   }
-  console.log(`Listo: ${aplicados} cambios traídos del panel, ${leads.length} leads subidos.`);
+  return { aplicados, subidos: leads.length };
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  main().catch((e) => {
+  sincronizar().then(({ aplicados, subidos }) => console.log(`Listo: ${aplicados} cambios traídos del panel, ${subidos} leads subidos.`)).catch((e) => {
     console.error('Error:', e.message);
     process.exit(1);
   });

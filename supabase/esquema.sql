@@ -33,6 +33,7 @@ create table if not exists public.leads (
   estado text not null default 'nuevo',
   nota text not null default '',
   historial jsonb not null default '[]',
+  borrador jsonb,
   actualizado_panel timestamptz,
   actualizado timestamptz not null default now()
 );
@@ -46,7 +47,10 @@ drop policy if exists "editar leads" on public.leads;
 create policy "editar leads" on public.leads
   for update to authenticated using (public.tiene_acceso()) with check (public.tiene_acceso());
 
--- Desde el panel solo se pueden cambiar estado, nota e historial
+-- Para proyectos creados antes de los borradores
+alter table public.leads add column if not exists borrador jsonb;
+
+-- Desde el panel solo se pueden cambiar estado, nota, historial y el borrador del email
 revoke update on public.leads from authenticated;
-grant update (estado, nota, historial, actualizado_panel) on public.leads to authenticated;
+grant update (estado, nota, historial, borrador, actualizado_panel) on public.leads to authenticated;
 revoke insert, delete on public.leads from anon, authenticated;

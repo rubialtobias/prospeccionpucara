@@ -41,8 +41,11 @@ async function leerCuerpo(req) {
 }
 
 async function cambiarEstado(req, res) {
-  const { linkedin_url, estado, nota } = await leerCuerpo(req);
+  const { linkedin_url, estado, nota, borrador } = await leerCuerpo(req);
   if (estado !== undefined && !ESTADOS.includes(estado)) return responder(res, 400, { error: `Estado desconocido: ${estado}` });
+  if (borrador !== undefined && !['pendiente', 'aprobado', 'descartado'].includes(borrador?.estado)) {
+    return responder(res, 400, { error: 'Estado de borrador desconocido' });
+  }
   const leads = await leerLeads();
   const lead = leads.find((l) => l.linkedin_url === linkedin_url);
   if (!lead) return responder(res, 404, { error: 'No existe ese lead' });
@@ -51,6 +54,19 @@ async function cambiarEstado(req, res) {
     lead.estado = estado;
   }
   if (nota !== undefined) lead.nota = String(nota).slice(0, 2000);
+  if (borrador !== undefined) {
+    if ((lead.historial ?? []).some((h) => h.tipo === 'envio')) return responder(res, 409, { error: 'Ese email ya se envió' });
+    const texto = (v, max) => String(v ?? '').slice(0, max);
+    lead.borrador = {
+      ...lead.borrador,
+      asunto: texto(borrador.asunto, 200),
+      cuerpo: texto(borrador.cuerpo, 5000),
+      seguimiento1: texto(borrador.seguimiento1, 3000),
+      seguimiento2: texto(borrador.seguimiento2, 3000),
+      estado: borrador.estado,
+      revisado: new Date().toISOString(),
+    };
+  }
   // Para que la sincronización con el panel online sepa cuál cambio es el más nuevo
   lead.actualizado_panel = new Date().toISOString();
   await writeFile(ARCHIVO_LEADS, JSON.stringify(leads, null, 2));

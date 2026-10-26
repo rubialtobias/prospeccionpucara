@@ -1,0 +1,243 @@
+// Envío diario de emails por Gmail, con rampa de volumen, seguimientos y detección de respuestas.
+//
+//   node --env-file=.env src/enviar.mjs --prueba     muestra qué mandaría hoy, sin mandar nada
+//   node --env-file=.env src/enviar.mjs --muestra    se manda a sí mismo el primer email aprobado, para verlo en Gmail
+//   node --env-file=.env src/enviar.mjs              revisa respuestas y manda lo que toca hoy
+//
+// Cada corrida:
+// 1. Trae del panel online lo aprobado o cambiado (si Supabase está configurado).
+// 2. Revisa la bandeja: quien respondió pasa a "Respondió" y no recibe más seguimientos; los rebotes se descartan.
+// 3. Manda primero los seguimientos que vencieron y después emails nuevos aprobados, hasta el límite del día.
+// 4. Sube todo al panel online.
+// Solo manda emails con borrador "aprobado" a leads que encajan. Nunca reenvía el mismo paso.
+
+import { readFile, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import { aCsv } from './buscar.mjs';
+import { sincronizar } from './sincronizar.mjs';
+
+const RAIZ = new URL('..', import.meta.url);
+const ARCHIVO_LEADS = new URL('data/leads.json', RAIZ);
+const ARCHIVO_CSV = new URL('data/leads.csv', RAIZ);
+const ARCHIVO_ESTADO = new URL('data/envios-estado.json', RAIZ);
+const ARCHIVO_CONFIG = new URL('config/envios.json', RAIZ);
+
+// Estados en los que ya no se le escribe más
+const CERRADOS = ['respondio', 'reunion', 'cliente', 'no_interesado', 'descartado'];
+
+const DIA_MS = 24 * 60 * 60 * 1000;
+const fechaLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const diasEntre = (desde, hasta) => Math.floor((new Date(fechaLocal(hasta)) - new Date(fechaLocal(desde))) / DIA_MS);
+
+export const enviosDe = (lead) => (lead.historial ?? []).filter((h) => h.tipo === 'envio');
+
+// Cuántos emails se pueden mandar hoy según la rampa. inicio = fecha del primer envío real (o null).
+export function limiteDelDia(config, inicio, hoy) {
+  const dia = inicio ? diasEntre(new Date(inicio), hoy) + 1 : 1;
+  const paso = config.rampa.filter((r) => r.desde_dia <= dia).at(-1) ?? config.rampa[0];
+  return Math.min(paso.por_dia, config.maximo);
+}
+
+export function enviadosHoy(leads, hoy) {
+  const dia = fechaLocal(hoy);
+  return leads.reduce((n, l) => n + enviosDe(l).filter((e) => fechaLocal(new Date(e.fecha)) === dia).length, 0);
+}
+
+// Lista de lo que toca mandar hoy: seguimientos vencidos primero, después primeros emails
+export function armarCola(leads, config, hoy) {
+  const seguimientos = [];
+  const nuevos = [];
+  for (const lead of leads) {
+    if (lead.encaja !== 'si' || !lead.email || CERRADOS.includes(lead.estado)) continue;
+    if (lead.borrador?.estado !== 'aprobado') continue;
+    const hechos = enviosDe(lead);
+    if (hechos.length === 0) {
+      if (lead.estado === 'con_email') nuevos.push({ lead, paso: 0 });
+      continue;
+    }
+    const paso = hechos.length; // 1 = primer seguimiento, 2 = segundo
+    if (paso > config.seguimientos.length) continue;
+    // Si un seguimiento quedó vacío, se saltea
+    if (!lead.borrador[`seguimiento${paso}`]?.trim()) continue;
+    if (diasEntre(new Date(hechos[0].fecha), hoy) >= config.seguimientos[paso - 1]) seguimientos.push({ lead, paso });
+  }
+  // Los aprobados primero que se aprobaron
+  nuevos.sort((a, b) => String(a.lead.borrador.revisado ?? '').localeCompare(String(b.lead.borrador.revisado ?? '')));
+  return [...seguimientos, ...nuevos];
+}
+
+export function armarMensaje(lead, paso, remitente) {
+  const b = lead.borrador;
+  const primero = enviosDe(lead)[0];
+  const mensaje = {
+    from: { name: remitente.nombre, address: remitente.email },
+    to: lead.email,
+    subject: paso === 0 ? b.asunto : `Re: ${b.asunto}`,
+    text: paso === 0 ? b.cuerpo : b[`seguimiento${paso}`],
+  };
+  // Los seguimientos van en el mismo hilo que el primer email
+  if (paso > 0 && primero?.message_id) {
+    mensaje.inReplyTo = primero.message_id;
+    mensaje.references = [primero.message_id];
+  }
+  return mensaje;
+}
+
+function hayHorario(config, ahora) {
+  const diaSemana = ahora.getDay() === 0 ? 7 : ahora.getDay();
+  const hora = ahora.getHours();
+  return config.dias.includes(diaSemana) && hora >= config.hora_desde && hora < config.hora_hasta;
+}
+
+function remitenteDelEnv() {
+  const email = process.env.GMAIL_REMITENTE;
+  const clave = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
+  if (!email || !clave) throw new Error('Faltan GMAIL_REMITENTE y GMAIL_APP_PASSWORD en el archivo .env');
+  return { email, clave, nombre: process.env.NOMBRE_REMITENTE || email };
+}
+
+async function crearTransporte(remitente) {
+  const { default: nodemailer } = await import('nodemailer');
+  const t = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: remitente.email, pass: remitente.clave } });
+  await t.verify();
+  return t;
+}
+
+const dominioDe = (email) => email.split('@')[1];
+const CORREO_GRATIS = /^(gmail|hotmail|yahoo|outlook|live|icloud)\./;
+
+// Revisa la bandeja de entrada: respuestas y rebotes de los leads que ya recibieron algo
+async function revisarBandeja(leads, remitente) {
+  const contactados = leads.filter((l) => enviosDe(l).length && !CERRADOS.includes(l.estado));
+  if (!contactados.length) return { respuestas: 0, rebotes: 0 };
+  const { ImapFlow } = await import('imapflow');
+  const imap = new ImapFlow({ host: 'imap.gmail.com', port: 993, secure: true, auth: { user: remitente.email, pass: remitente.clave }, logger: false });
+  await imap.connect();
+  let respuestas = 0;
+  let rebotes = 0;
+  const ahora = new Date().toISOString();
+  try {
+    await imap.mailboxOpen('INBOX', { readOnly: true });
+    for (const lead of contactados) {
+      const desde = new Date(enviosDe(lead)[0].fecha);
+      const despues = `${desde.getFullYear()}/${desde.getMonth() + 1}/${desde.getDate()}`;
+      // Responde la persona o alguien más del mismo dominio (salvo Gmail, Hotmail, etc.)
+      const quien = CORREO_GRATIS.test(dominioDe(lead.email)) ? lead.email : `@${dominioDe(lead.email)}`;
+      const [respuesta] = await imap.search({ gmailRaw: `from:(${quien}) after:${despues}` }) || [];
+      if (respuesta) {
+        const msg = await imap.fetchOne(respuesta, { envelope: true });
+        lead.historial.push({ fecha: (msg.envelope?.date ?? new Date()).toISOString(), tipo: 'respuesta', asunto: msg.envelope?.subject ?? '' });
+        lead.historial.push({ fecha: ahora, tipo: 'estado', de: lead.estado, a: 'respondio' });
+        lead.estado = 'respondio';
+        lead.actualizado_panel = ahora;
+        respuestas++;
+        continue;
+      }
+      const [rebote] = await imap.search({ gmailRaw: `from:(mailer-daemon OR postmaster) "${lead.email}" after:${despues}` }) || [];
+      if (rebote) {
+        lead.historial.push({ fecha: ahora, tipo: 'estado', de: lead.estado, a: 'descartado' });
+        lead.estado = 'descartado';
+        lead.nota = [lead.nota, 'El email rebotó: la dirección no existe o no recibe correo.'].filter(Boolean).join('\n');
+        lead.actualizado_panel = ahora;
+        rebotes++;
+      }
+    }
+  } finally {
+    await imap.logout();
+  }
+  return { respuestas, rebotes };
+}
+
+async function guardar(leads) {
+  await writeFile(ARCHIVO_LEADS, JSON.stringify(leads, null, 2));
+  await writeFile(ARCHIVO_CSV, aCsv(leads));
+}
+
+const hayPanelOnline = () => Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+async function main() {
+  const args = new Set(process.argv.slice(2));
+  const prueba = args.has('--prueba');
+  const config = JSON.parse(await readFile(ARCHIVO_CONFIG, 'utf8'));
+  const estado = existsSync(ARCHIVO_ESTADO) ? JSON.parse(await readFile(ARCHIVO_ESTADO, 'utf8')) : { inicio: null };
+  const ahora = new Date();
+
+  if (hayPanelOnline() && !prueba) {
+    const { aplicados } = await sincronizar();
+    if (aplicados) console.log(`Traídos ${aplicados} cambios del panel online.`);
+  }
+  const leads = JSON.parse(await readFile(ARCHIVO_LEADS, 'utf8'));
+
+  if (args.has('--muestra')) {
+    const remitente = remitenteDelEnv();
+    const lead = leads.find((l) => l.borrador?.estado === 'aprobado') ?? leads.find((l) => l.borrador);
+    if (!lead) throw new Error('No hay borradores todavía.');
+    const t = await crearTransporte(remitente);
+    await t.sendMail({ ...armarMensaje(lead, 0, remitente), to: remitente.email, subject: `[MUESTRA] ${lead.borrador.asunto}` });
+    console.log(`Muestra enviada a ${remitente.email}: el email para ${lead.empresa}. No se marcó como enviado.`);
+    return;
+  }
+
+  const remitente = prueba ? null : remitenteDelEnv();
+  if (!prueba) {
+    const { respuestas, rebotes } = await revisarBandeja(leads, remitente);
+    if (respuestas || rebotes) console.log(`Bandeja: ${respuestas} respuestas, ${rebotes} rebotes.`);
+  }
+
+  const limite = limiteDelDia(config, estado.inicio, ahora);
+  const cupo = Math.max(0, limite - enviadosHoy(leads, ahora));
+  const cola = armarCola(leads, config, ahora).slice(0, cupo);
+  console.log(`Límite de hoy: ${limite}. Ya enviados hoy: ${limite - cupo}. Para mandar ahora: ${cola.length}.`);
+
+  if (!hayHorario(config, ahora) && !args.has('--fuera-de-horario')) {
+    console.log(`Fuera del horario de envío (días ${config.dias.join(',')}, ${config.hora_desde} a ${config.hora_hasta} h). No se manda nada.`);
+    cola.length = 0;
+  }
+
+  if (prueba) {
+    for (const { lead, paso } of cola) console.log(`  ${paso === 0 ? 'Primer email' : `Seguimiento ${paso}`} -> ${lead.email} (${lead.empresa})`);
+    console.log('Modo prueba: no se mandó nada.');
+    return;
+  }
+
+  let transporte = null;
+  let enviados = 0;
+  try {
+    for (const [i, { lead, paso }] of cola.entries()) {
+      if (i > 0 && !args.has('--sin-pausa')) {
+        const [min, max] = config.pausa_minutos;
+        const espera = (min + Math.random() * (max - min)) * 60 * 1000;
+        console.log(`  Esperando ${Math.round(espera / 60000)} min antes del próximo...`);
+        await new Promise((r) => setTimeout(r, espera));
+      }
+      transporte ??= await crearTransporte(remitente);
+      const mensaje = armarMensaje(lead, paso, remitente);
+      const info = await transporte.sendMail(mensaje);
+      const fecha = new Date().toISOString();
+      lead.historial = [...(lead.historial ?? []), { fecha, tipo: 'envio', paso, asunto: mensaje.subject, message_id: info.messageId }];
+      const nuevoEstado = paso === 0 ? 'enviado' : 'seguimiento';
+      if (lead.estado !== nuevoEstado) lead.historial.push({ fecha, tipo: 'estado', de: lead.estado, a: nuevoEstado });
+      lead.estado = nuevoEstado;
+      lead.actualizado_panel = fecha;
+      estado.inicio ??= fecha;
+      enviados++;
+      console.log(`  Enviado: ${paso === 0 ? 'primer email' : `seguimiento ${paso}`} a ${lead.email} (${lead.empresa})`);
+      // Se guarda después de cada envío: si algo falla, no se vuelve a mandar el mismo email
+      await guardar(leads);
+      await writeFile(ARCHIVO_ESTADO, JSON.stringify(estado, null, 2));
+    }
+  } finally {
+    await guardar(leads);
+    transporte?.close();
+  }
+  console.log(`Listo: ${enviados} enviados.`);
+  if (hayPanelOnline()) await sincronizar();
+}
+
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  main().catch((e) => {
+    console.error('Error:', e.message);
+    process.exit(1);
+  });
+}
