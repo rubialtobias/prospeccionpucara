@@ -30,7 +30,8 @@ const DIA_MS = 24 * 60 * 60 * 1000;
 const fechaLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const diasEntre = (desde, hasta) => Math.floor((new Date(fechaLocal(hasta)) - new Date(fechaLocal(desde))) / DIA_MS);
 
-export const enviosDe = (lead) => (lead.historial ?? []).filter((h) => h.tipo === 'envio');
+// Solo los emails: lo mandado a mano por WhatsApp o Instagram no cuenta para el límite de Gmail
+export const enviosDe = (lead) => (lead.historial ?? []).filter((h) => h.tipo === 'envio' && (h.canal ?? 'email') === 'email');
 
 // Cuántos emails se pueden mandar hoy según la rampa. inicio = fecha del primer envío real (o null).
 export function limiteDelDia(config, inicio, hoy) {

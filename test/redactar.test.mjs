@@ -56,3 +56,46 @@ test('el primer email no lleva web ni teléfono; los seguimientos sí', () => {
   assert.doesNotMatch(b.cuerpo, /pucaratechnologies\.com|5486/);
   assert.match(b.seguimiento1, /pucaratechnologies\.com · WhatsApp \+54 9 11 5486-6935/);
 });
+
+test('gimnasios: el email habla de precios, horarios y clase de prueba', () => {
+  const gym = { empresa: 'Bestial Gym', rubro: 'gimnasios', email_tipo: 'generico', web: 'https://bestialgym.com.ar', web_revisada: { boton_whatsapp: true } };
+  const b = redactar(gym);
+  assert.match(b.cuerpo, /^Hola, equipo de Bestial Gym:/);
+  assert.match(b.cuerpo, /precios u horarios a las 11 de la noche/);
+  assert.match(b.cuerpo, /asistentes de IA para gimnasios/);
+  assert.match(b.seguimiento1, /cuotas vencidas/);
+  assert.doesNotMatch(b.cuerpo, /propiedad|inmobiliaria/i);
+});
+
+test('celulares de Argentina a formato de WhatsApp', async () => {
+  const { numeroWhatsapp } = await import('../src/redactar.mjs');
+  assert.equal(numeroWhatsapp('0221 15-436-6542'), '5492214366542');
+  assert.equal(numeroWhatsapp('011 15-5486-6935'), '5491154866935');
+  assert.equal(numeroWhatsapp('+54 9 11 5486-6935'), '5491154866935');
+  assert.equal(numeroWhatsapp('0221 495-9660'), '');
+  assert.equal(numeroWhatsapp(''), '');
+});
+
+test('mensaje a mano: sin web ofrece página web, con web ofrece agente', async () => {
+  const { redactarManual } = await import('../src/redactar.mjs');
+  const sinWeb = redactarManual({ empresa: 'OBELIUS GYM', rubro: 'gimnasios', ubicacion: 'La Plata', telefono: '0221 15-362-7073', instagram: 'https://www.instagram.com/obelius/' });
+  assert.equal(sinWeb.canal, 'whatsapp');
+  assert.equal(sinWeb.oferta, 'web');
+  assert.match(sinWeb.texto, /figura en Google Maps con su Instagram pero sin página web/);
+  assert.match(sinWeb.texto, /gimnasio en La Plata/);
+  const soloIg = redactarManual({ empresa: 'Fit Club', rubro: 'gimnasios', telefono: '0221 362-3735', instagram: 'https://www.instagram.com/fit.clublp/' });
+  assert.equal(soloIg.canal, 'instagram');
+  const conWeb = redactarManual({ empresa: 'Core Gym', rubro: 'gimnasios', web: 'https://coregym.com.ar', whatsapp: '5492214959660' });
+  assert.equal(conWeb.oferta, 'agente');
+  assert.equal(conWeb.numero, '5492214959660');
+  assert.equal(redactarManual({ empresa: 'X', rubro: 'gimnasios', telefono: '0221 495-9660' }), null);
+});
+
+test('nombres de Google Maps sin agregados', async () => {
+  const { nombreCorto } = await import('../src/redactar.mjs');
+  assert.equal(nombreCorto('Bestial Gym Caballito Bs. As.', 'Caballito CABA'), 'Bestial Gym');
+  assert.equal(nombreCorto('OPEN BOX 24/7: HYROX Official GYM', 'Palermo CABA'), 'OPEN BOX 24/7');
+  assert.equal(nombreCorto('RED FITNESS CLUB (Sede Morón)', 'Morón'), 'RED FITNESS CLUB');
+  assert.equal(nombreCorto('Gimnasio California Rosario', 'Rosario'), 'Gimnasio California');
+  assert.equal(nombreCorto('Rosario', 'Rosario'), 'Rosario');
+});

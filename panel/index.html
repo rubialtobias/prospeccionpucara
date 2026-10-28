@@ -149,6 +149,7 @@
   .correo p { margin: 0; font-size: 13px; }
   .correo-acciones { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .boton.secundario { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  a.boton { display: inline-block; text-decoration: none; text-align: center; }
 
   /* Celular: embudo como lista, leads como tarjetas, ficha a pantalla completa */
   @media (max-width: 640px) {
@@ -281,11 +282,13 @@
       </select>
       <select id="f-estado" aria-label="Filtrar por estado"><option value="">Estado</option></select>
       <select id="f-rubro" aria-label="Filtrar por rubro"><option value="">Rubro</option></select>
-      <select id="f-borrador" aria-label="Filtrar por email">
-        <option value="">Email</option>
-        <option value="pendiente">Por aprobar</option>
-        <option value="aprobado">Aprobados</option>
-        <option value="descartado">Descartados</option>
+      <select id="f-borrador" aria-label="Filtrar por mensaje">
+        <option value="">Mensaje</option>
+        <option value="pendiente">Email por aprobar</option>
+        <option value="aprobado">Email aprobado</option>
+        <option value="descartado">Email descartado</option>
+        <option value="whatsapp">WhatsApp para mandar</option>
+        <option value="instagram">Instagram para mandar</option>
       </select>
     </div>
     <div class="scroll leads">
@@ -320,7 +323,8 @@ const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 // Los de Google Maps no traen persona: se muestra el negocio
 const quien = (l) => [l.nombre, l.apellido].filter(Boolean).join(' ') || (l.fuente === 'maps' ? l.empresa : 'Sin nombre');
 const hoyIso = () => new Date().toISOString().slice(0, 10);
-const envios = (l) => (l.historial ?? []).filter((h) => h.tipo === 'envio');
+const envios = (l) => (l.historial ?? []).filter((h) => h.tipo === 'envio' && (h.canal ?? 'email') === 'email');
+const enviadoAMano = (l) => (l.historial ?? []).some((h) => h.tipo === 'envio' && ['whatsapp', 'instagram'].includes(h.canal));
 const ultimoContacto = (l) => (l.historial ?? []).filter((h) => h.tipo === 'envio' || h.tipo === 'respuesta').at(-1);
 const fecha = (iso) => iso ? new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : '';
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
@@ -372,9 +376,11 @@ function pintarHoy() {
   const sinEnviar = datos.leads.filter((l) => l.estado === 'con_email' && l.encaja === 'si');
   const aprobados = sinEnviar.filter((l) => l.borrador?.estado === 'aprobado').length;
   const porAprobar = sinEnviar.filter((l) => l.borrador?.estado === 'pendiente').length;
+  const aMano = datos.leads.filter((l) => l.encaja === 'si' && l.mensaje_manual && !enviadoAMano(l)).length;
   const listos = aprobados === 1 ? '1 email aprobado listo para salir' : `${aprobados} emails aprobados listos para salir`;
   $('#hoy-texto').textContent = `${listos}${porAprobar ? `, ${porAprobar} por aprobar` : ''}.` +
-    (n === 0 ? '' : ` Quedan ${Math.max(0, lim - n)} envíos hoy.`);
+    (n === 0 ? '' : ` Quedan ${Math.max(0, lim - n)} envíos hoy.`) +
+    (aMano ? ` ${aMano} mensajes para mandar a mano por WhatsApp o Instagram.` : '');
 }
 
 function filtrados() {
@@ -385,7 +391,7 @@ function filtrados() {
     (!fe || (fe === 'sin' ? !l.encaja : l.encaja === fe)) &&
     (!fs || l.estado === fs) &&
     (!fr || l.rubro === fr) &&
-    (!fb || l.borrador?.estado === fb));
+    (!fb || (['whatsapp', 'instagram'].includes(fb) ? l.mensaje_manual?.canal === fb && !enviadoAMano(l) : l.borrador?.estado === fb)));
 }
 
 function pintarTabla() {
@@ -446,6 +452,7 @@ function pintarFicha() {
     </dl>
     ${l.snippet ? `<div class="snippet">${esc(l.snippet)}</div>` : ''}
     ${l.borrador ? fichaCorreo(l) : ''}
+    ${l.mensaje_manual ? fichaManual(l) : ''}
     <div class="campo">
       <label for="estado">Estado</label>
       <select id="estado">${datos.estados.map((e) => `<option value="${e}" ${e === l.estado ? 'selected' : ''}>${NOMBRE_ESTADO[e] ?? e}</option>`).join('')}</select>
@@ -457,11 +464,12 @@ function pintarFicha() {
     <div class="acciones" style="display:flex;gap:12px;align-items:center"><button class="boton" id="guardar">Guardar</button><span class="guardado" id="guardado"></span></div>
     <div class="campo">
       <label>Historial</label>
-      <div class="historial">${hist.length ? hist.map((h) => `<div><span class="fecha">${fecha(h.fecha)}</span><span>${h.tipo === 'estado' ? `Pasó de ${NOMBRE_ESTADO[h.de] ?? h.de} a ${NOMBRE_ESTADO[h.a] ?? h.a}` : h.tipo === 'envio' ? `Email enviado: ${esc(h.asunto ?? '')}` : h.tipo === 'respuesta' ? 'Respondió' : esc(h.tipo)}</span></div>`).join('') : '<span class="gris">Sin movimientos todavía.</span>'}</div>
+      <div class="historial">${hist.length ? hist.map((h) => `<div><span class="fecha">${fecha(h.fecha)}</span><span>${h.tipo === 'estado' ? `Pasó de ${NOMBRE_ESTADO[h.de] ?? h.de} a ${NOMBRE_ESTADO[h.a] ?? h.a}` : h.tipo === 'envio' ? (h.canal && h.canal !== 'email' ? `Mensaje enviado por ${NOMBRE_CANAL[h.canal] ?? esc(h.canal)}` : `Email enviado: ${esc(h.asunto ?? '')}`) : h.tipo === 'respuesta' ? 'Respondió' : esc(h.tipo)}</span></div>`).join('') : '<span class="gris">Sin movimientos todavía.</span>'}</div>
     </div>`;
   f.hidden = false;
   $('#cerrar').onclick = () => { abierto = null; f.hidden = true; pintarTabla(); };
   $('#guardar').onclick = guardar;
+  if (l.mensaje_manual && !enviadoAMano(l)) prepararManual(l);
   if (l.borrador && !yaEnviado(l)) {
     $('#aprobar').onclick = () => guardarBorrador('aprobado');
     $('#descartar-borrador').onclick = () => guardarBorrador('descartado');
@@ -497,6 +505,60 @@ function fichaCorreo(l) {
       </div>`}
       ${b.estado === 'aprobado' && !enviado ? '<p class="gris">Sale en el próximo envío diario, según el límite del día.</p>' : ''}
     </section>`;
+}
+
+const NOMBRE_CANAL = { whatsapp: 'WhatsApp', instagram: 'Instagram' };
+const linkWhatsapp = (numero, texto) => `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
+
+function fichaManual(l) {
+  const m = l.mensaje_manual;
+  const hecho = (l.historial ?? []).find((h) => h.tipo === 'envio' && h.canal === m.canal);
+  const oferta = m.oferta === 'web' ? 'página web' : 'agente de IA';
+  return `
+    <section class="correo" aria-label="Mensaje para mandar a mano">
+      <div class="correo-cab"><h4>Mensaje por ${NOMBRE_CANAL[m.canal]} · ${oferta}</h4>
+        <span class="pill ${hecho ? 'enviado' : 'seguimiento'}">${hecho ? `Enviado ${fecha(hecho.fecha)}` : 'Para mandar'}</span></div>
+      <div class="campo"><label for="m-texto">Mensaje</label><textarea id="m-texto" rows="10" ${hecho ? 'disabled' : ''}>${esc(m.texto)}</textarea></div>
+      ${hecho ? '' : `<div class="acciones correo-acciones">
+        ${m.canal === 'whatsapp'
+          ? `<a class="boton" id="abrir-manual" href="${esc(linkWhatsapp(m.numero, m.texto))}" target="_blank" rel="noopener">Abrir WhatsApp con el mensaje</a>`
+          : `<button class="boton" id="copiar-manual" type="button">Copiar mensaje</button>
+             <a class="boton secundario" href="${esc(m.instagram)}" target="_blank" rel="noopener">Abrir Instagram</a>`}
+        <button class="boton secundario" id="marcar-manual" type="button">Ya lo mandé</button>
+        <span class="guardado" id="m-guardado"></span>
+      </div>
+      <p class="gris">${m.canal === 'whatsapp'
+        ? `Se abre WhatsApp con el mensaje escrito para el ${esc(m.numero)}. Revisalo, mandalo y después tocá "Ya lo mandé".`
+        : 'Copiá el mensaje, abrí su Instagram y mandáselo por mensaje directo. Después tocá "Ya lo mandé".'}</p>`}
+    </section>`;
+}
+
+function prepararManual(l) {
+  const m = l.mensaje_manual;
+  // Si editás el texto, el botón de WhatsApp abre con la versión editada
+  $('#m-texto').addEventListener('input', () => {
+    const a = $('#abrir-manual');
+    if (a) a.href = linkWhatsapp(m.numero, $('#m-texto').value);
+  });
+  $('#copiar-manual')?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText($('#m-texto').value);
+      $('#m-guardado').textContent = 'Copiado';
+    } catch {
+      $('#m-texto').select();
+      $('#m-guardado').textContent = 'Seleccioné el texto: copialo con Ctrl+C';
+    }
+  });
+  $('#marcar-manual').addEventListener('click', async () => {
+    try {
+      const res = await fuente.guardar({ linkedin_url: l.linkedin_url, estado: 'enviado', envio: { canal: m.canal, asunto: `Mensaje por ${NOMBRE_CANAL[m.canal]}` } });
+      datos.leads[datos.leads.findIndex((x) => x.linkedin_url === l.linkedin_url)] = res;
+    } catch (e) {
+      $('#m-guardado').textContent = `No se pudo guardar: ${e.message}`;
+      return;
+    }
+    pintar();
+  });
 }
 
 async function guardarBorrador(estadoNuevo) {
@@ -544,7 +606,7 @@ const fuente = sb ? {
     }
     return { leads, estados: ESTADOS, limiteDiario: CONFIG.limiteDiario ?? 10 };
   },
-  async guardar({ linkedin_url, estado, nota, borrador }) {
+  async guardar({ linkedin_url, estado, nota, borrador, envio }) {
     const lead = datos.leads.find((l) => l.linkedin_url === linkedin_url);
     const ahora = new Date().toISOString();
     const cambios = { actualizado_panel: ahora };
@@ -556,6 +618,7 @@ const fuente = sb ? {
     }
     if (nota !== undefined) cambios.nota = nota.slice(0, 2000);
     if (borrador !== undefined) cambios.borrador = borrador;
+    if (envio) cambios.historial = [...(cambios.historial ?? lead.historial ?? []), { fecha: ahora, tipo: 'envio', canal: envio.canal, asunto: envio.asunto }];
     const { error } = await sb.from('leads').update(cambios).eq('linkedin_url', linkedin_url);
     if (error) throw error;
     return { ...lead, ...cambios };

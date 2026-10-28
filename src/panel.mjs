@@ -41,7 +41,8 @@ async function leerCuerpo(req) {
 }
 
 async function cambiarEstado(req, res) {
-  const { linkedin_url, estado, nota, borrador } = await leerCuerpo(req);
+  const { linkedin_url, estado, nota, borrador, envio } = await leerCuerpo(req);
+  if (envio !== undefined && !['whatsapp', 'instagram'].includes(envio?.canal)) return responder(res, 400, { error: 'Canal desconocido' });
   if (estado !== undefined && !ESTADOS.includes(estado)) return responder(res, 400, { error: `Estado desconocido: ${estado}` });
   if (borrador !== undefined && !['pendiente', 'aprobado', 'descartado'].includes(borrador?.estado)) {
     return responder(res, 400, { error: 'Estado de borrador desconocido' });
@@ -66,6 +67,10 @@ async function cambiarEstado(req, res) {
       estado: borrador.estado,
       revisado: new Date().toISOString(),
     };
+  }
+  // Mensaje mandado a mano por WhatsApp o Instagram
+  if (envio) {
+    lead.historial = [...(lead.historial ?? []), { fecha: new Date().toISOString(), tipo: 'envio', canal: envio.canal, asunto: String(envio.asunto ?? '').slice(0, 200) }];
   }
   // Para que la sincronización con el panel online sepa cuál cambio es el más nuevo
   lead.actualizado_panel = new Date().toISOString();
