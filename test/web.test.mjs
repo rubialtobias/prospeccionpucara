@@ -53,3 +53,16 @@ test('descarta el email de otra empresa que aparece en la web', () => {
   assert.equal(elegirEmail(['info@realtortrackpro.com'], { web: 'https://gustavodesimone.com', nombre: 'Gustavo' }), null);
   assert.equal(elegirEmail(['juancupertinoinmo@gmail.com'], { web: 'https://cupertinoinmobiliaria.ar', nombre: 'Juan' }).email, 'juancupertinoinmo@gmail.com');
 });
+
+test('señales de web floja', async () => {
+  const { senalesDeWebFloja, puntajeWebFloja } = await import('../src/web.mjs');
+  const vieja = senalesDeWebFloja('<footer>© 2016 Gym Pepe</footer><p>Bienvenidos</p>', 'https://gympepe.wixsite.com/inicio');
+  assert.equal(vieja.anio_copyright, 2016);
+  assert.equal(vieja.subdominio_gratis, true);
+  assert.equal(vieja.muestra_precios, false);
+  assert.ok(puntajeWebFloja({ ...vieja, segundos: 1 }) >= 4);
+  const buena = senalesDeWebFloja(`<p>Planes desde $25.000 por mes</p>${'<p>texto del gimnasio </p>'.repeat(80)}<footer>© 2025</footer>`, 'https://gym.com.ar/');
+  assert.equal(buena.muestra_precios, true);
+  assert.equal(puntajeWebFloja({ ...buena, boton_whatsapp: true, segundos: 1 }), 0);
+  assert.equal(puntajeWebFloja({ error: 'No abre' }), 0);
+});

@@ -513,7 +513,7 @@ const linkWhatsapp = (numero, texto) => `https://wa.me/${numero}?text=${encodeUR
 function fichaManual(l) {
   const m = l.mensaje_manual;
   const hecho = (l.historial ?? []).find((h) => h.tipo === 'envio' && h.canal === m.canal);
-  const oferta = m.oferta === 'web' ? 'página web' : 'agente de IA';
+  const oferta = { web: 'página web', renovar_web: 'renovar la web', agente: 'agente de IA' }[m.oferta] ?? m.oferta;
   return `
     <section class="correo" aria-label="Mensaje para mandar a mano">
       <div class="correo-cab"><h4>Mensaje por ${NOMBRE_CANAL[m.canal]} · ${oferta}</h4>
@@ -528,7 +528,7 @@ function fichaManual(l) {
         <span class="guardado" id="m-guardado"></span>
       </div>
       <p class="gris">${m.canal === 'whatsapp'
-        ? `Se abre WhatsApp con el mensaje escrito para el ${esc(m.numero)}. Revisalo, mandalo y después tocá "Ya lo mandé".`
+        ? `Se abre WhatsApp con el mensaje escrito para el ${esc(m.numero)}. Revisalo, mandalo y después tocá "Ya lo mandé".${m.numero_dudoso ? " Ojo: este número puede ser fijo. Si WhatsApp dice que no está registrado, queda para llamar." : ""}`
         : 'Copiá el mensaje, abrí su Instagram y mandáselo por mensaje directo. Después tocá "Ya lo mandé".'}</p>`}
     </section>`;
 }

@@ -81,8 +81,13 @@ test('mensaje a mano: sin web ofrece página web, con web ofrece agente', async 
   const sinWeb = redactarManual({ empresa: 'OBELIUS GYM', rubro: 'gimnasios', ubicacion: 'La Plata', telefono: '0221 15-362-7073', instagram: 'https://www.instagram.com/obelius/' });
   assert.equal(sinWeb.canal, 'whatsapp');
   assert.equal(sinWeb.oferta, 'web');
-  assert.match(sinWeb.texto, /figura en Google Maps con su Instagram pero sin página web/);
-  assert.match(sinWeb.texto, /gimnasio en La Plata/);
+  assert.match(sinWeb.texto, /Vi que OBELIUS GYM está en Google Maps pero todavía no tiene página web propia/);
+  assert.match(sinWeb.texto, /sin tener que escribirles por Instagram o WhatsApp/);
+  assert.doesNotMatch(sinWeb.texto, /dónde los encuentra/);
+  const elogio = redactarManual({ empresa: 'SKAY GYM', rubro: 'gimnasios', telefono: '0221 15-590-7587', calificacion: 4.8, resenas: 343 });
+  assert.match(elogio.texto, /tiene muy buenas reseñas en Google Maps \(4,8 ★ con 343 opiniones\) y que todavía no tiene página web propia/);
+  const pocas = redactarManual({ empresa: 'X Gym', rubro: 'gimnasios', telefono: '0221 15-590-7587', calificacion: 5, resenas: 4 });
+  assert.doesNotMatch(pocas.texto, /reseñas/);
   const soloIg = redactarManual({ empresa: 'Fit Club', rubro: 'gimnasios', telefono: '0221 362-3735', instagram: 'https://www.instagram.com/fit.clublp/' });
   assert.equal(soloIg.canal, 'instagram');
   const conWeb = redactarManual({ empresa: 'Core Gym', rubro: 'gimnasios', web: 'https://coregym.com.ar', whatsapp: '5492214959660' });
@@ -98,4 +103,35 @@ test('nombres de Google Maps sin agregados', async () => {
   assert.equal(nombreCorto('RED FITNESS CLUB (Sede Morón)', 'Morón'), 'RED FITNESS CLUB');
   assert.equal(nombreCorto('Gimnasio California Rosario', 'Rosario'), 'Gimnasio California');
   assert.equal(nombreCorto('Rosario', 'Rosario'), 'Rosario');
+});
+
+test('web floja: pregunta sobre lo que se vio y ofrece renovarla', async () => {
+  const { redactarManual, ganchoWebFloja } = await import('../src/redactar.mjs');
+  const base = { rubro: 'gimnasios', email_tipo: 'generico', ubicacion: 'Rosario' };
+  assert.match(ganchoWebFloja({ ...base, empresa: 'Urban Six', web_floja: { como: 'vieja', anio: 2018 } }), /al pie dice © 2018\. ¿La están pensando renovar\?/);
+  assert.match(ganchoWebFloja({ ...base, empresa: 'La Mecca', web_floja: { como: 'suspendida' } }), /aparece como suspendida/);
+  assert.match(ganchoWebFloja({ ...base, empresa: 'FitLife', web: 'https://gimnasiofitlife.carrd.co', web_floja: { como: 'subdominio' } }), /armada en gimnasiofitlife\.carrd\.co/);
+  const b = redactar({ ...base, empresa: 'Gimnasio California Rosario', email: 'x@gmail.com', web_floja: { como: 'actualizar' } });
+  assert.equal(b.asunto, 'la web de Gimnasio California');
+  assert.match(b.cuerpo, /¿Hace cuánto que no la actualizan\?/);
+  assert.match(b.seguimiento1, /asistentes de IA/);
+  assert.doesNotMatch(b.cuerpo, /fea|horrible|mala/i);
+  const m = redactarManual({ ...base, empresa: 'ION GYM', web: 'https://iongym.com.ar', telefono: '0221 15-111-2222', web_floja: { como: 'actualizar' } });
+  assert.equal(m.oferta, 'renovar_web');
+});
+
+test('números: WhatsApp de la web sin 9 y posibles celulares sin 15', async () => {
+  const { normalizarWhatsapp, posibleCelular, redactarManual } = await import('../src/redactar.mjs');
+  assert.equal(normalizarWhatsapp('543413682675'), '5493413682675');
+  assert.equal(normalizarWhatsapp('5493417122180'), '5493417122180');
+  assert.equal(posibleCelular('011 7623-1725'), '5491176231725');
+  assert.equal(posibleCelular('0221 676-4043'), '5492216764043');
+  assert.equal(posibleCelular('011 4776-6496'), '');
+  assert.equal(posibleCelular('011 5602-3103'), '');
+  assert.equal(posibleCelular('0341 449-5233'), '');
+  const m = redactarManual({ empresa: 'La Mecca', rubro: 'gimnasios', telefono: '011 7623-1725' });
+  assert.equal(m.numero, '5491176231725');
+  assert.equal(m.numero_dudoso, true);
+  const conIg = redactarManual({ empresa: 'X', rubro: 'gimnasios', telefono: '011 7623-1725', instagram: 'https://instagram.com/x' });
+  assert.equal(conIg.canal, 'instagram');
 });

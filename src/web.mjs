@@ -112,6 +112,37 @@ const CHATS = [
 ];
 // GetButton, Joinchat y similares no van: son solo un botón flotante de WhatsApp, no un chat
 
+// Constructores gratuitos o subdominios prestados: la web no tiene dominio propio
+const SUBDOMINIO_GRATIS = /\.(wixsite\.com|carrd\.co|blogspot\.com|weebly\.com|godaddysites\.com|webnode\.\w+|site123\.me|jimdosite\.com|business\.site|negocio\.site|wordpress\.com|squarespace\.com|mitiendanube\.com)$/i;
+
+// Señales concretas de una web floja. No dicen que sea fea (eso se confirma mirándola), solo que vale la pena mirarla.
+export function senalesDeWebFloja(html, urlFinal) {
+  const texto = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ');
+  const anios = [...texto.matchAll(/(?:©|&copy;|copyright)\s*(?:\d{4}\s*[-–]\s*)?(20\d{2}|19\d{2})/gi)].map((m) => Number(m[1]));
+  const anioCopyright = anios.length ? Math.max(...anios) : null;
+  const palabrasVisibles = texto.split(/\s+/).filter((p) => p.length > 1).length;
+  const host = (() => { try { return new URL(urlFinal).hostname; } catch { return ''; } })();
+  return {
+    anio_copyright: anioCopyright,
+    subdominio_gratis: SUBDOMINIO_GRATIS.test(host),
+    muestra_precios: /\$\s?\d|precio|tarifa|valor(es)? (de la )?cuota|planes?\b/i.test(texto),
+    palabras: palabrasVisibles,
+  };
+}
+
+// Cuántas señales de web floja tiene. 2 o más: candidata a ofrecerle renovar la web (después de mirarla).
+export function puntajeWebFloja(w) {
+  if (!w || w.error) return 0;
+  let p = 0;
+  if (w.anio_copyright && w.anio_copyright <= new Date().getFullYear() - 4) p++;
+  if (w.subdominio_gratis) p++;
+  if (!w.muestra_precios) p++;
+  if (!w.boton_whatsapp && !w.formulario) p++;
+  if (w.segundos > 4) p++;
+  if (w.palabras !== undefined && w.palabras < 120) p++;
+  return p;
+}
+
 // Datos de la web que sirven para el gancho del email
 export function revisarWeb(html, urlFinal, ms) {
   const plataformas = {
@@ -128,6 +159,7 @@ export function revisarWeb(html, urlFinal, ms) {
     plataforma: Object.entries(plataformas).find(([, re]) => re.test(html))?.[0] ?? '',
     segundos: Math.round(ms / 100) / 10,
     titulo: (html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] ?? '').trim().slice(0, 120),
+    ...senalesDeWebFloja(html, urlFinal),
   };
 }
 

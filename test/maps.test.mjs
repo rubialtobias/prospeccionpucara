@@ -21,3 +21,7 @@ test('un lugar de Maps se vuelve lead con web propia o Instagram', () => {
   assert.equal(conIg.instagram, 'https://www.instagram.com/fit.clublp/');
   assert.equal(lugarALead({ title: 'Sin id' }, ctx), null);
 });
+
+test('reconoce cadenas escritas con letras decorativas', () => {
+  assert.ok(esCadena('𝙎𝙥𝙤𝙧𝙩𝘾𝙡𝙪𝙗 [Estrada]', ['sportclub']));
+});

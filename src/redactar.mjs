@@ -111,6 +111,7 @@ function gancho(lead) {
 }
 
 export function redactar(lead) {
+  if (lead.web_floja) return redactarWebFloja(lead);
   const g = gancho(lead);
   const r = textosDe(lead);
   const t = trato(lead);
@@ -132,6 +133,51 @@ export function redactar(lead) {
   return { asunto: g.asunto, cuerpo, seguimiento1, seguimiento2, variante: variante(lead), estado: 'pendiente', creado: new Date().toISOString() };
 }
 
+// Webs flojas confirmadas mirándolas (lead.web_floja). El gancho es una pregunta sobre algo que se ve,
+// nunca "su web es fea". "como" dice qué se vio: actualizar (diseño viejo u oscuro), vieja (© de hace años),
+// suspendida (la dio de baja el hosting), subdominio (armada gratis, sin dominio propio).
+export function ganchoWebFloja(lead) {
+  const e = nombreCorto(lead.empresa, lead.ubicacion);
+  const f = lead.web_floja ?? {};
+  const dominio = (lead.web ?? '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+  return {
+    vieja: `Entré a la web de ${e} y vi que al pie dice © ${f.anio}. ¿La están pensando renovar?`,
+    suspendida: `Quise entrar a la web de ${e} y aparece como suspendida por el hosting. ¿Lo sabían?`,
+    subdominio: `Vi que la web de ${e} está armada en ${dominio}. ¿Pensaron en tener una con dominio propio?`,
+  }[f.como] ?? `Entré a la web de ${e}. ¿Hace cuánto que no la actualizan?`;
+}
+
+const webParaElRubro = (lead) => (lead.rubro === 'gimnasios'
+  ? 'páginas web para gimnasios pensadas para el celular: precios, horarios y clases a la vista, y un botón para reservar una clase de prueba'
+  : 'páginas web pensadas para el celular, con todo lo que ofrecen a la vista y un botón para consultar');
+
+// Email para quien tiene la web floja: el primero ofrece renovarla, el día 3 el agente de IA, el día 7 todo
+function redactarWebFloja(lead) {
+  const e = nombreCorto(lead.empresa, lead.ubicacion);
+  const t = trato(lead);
+  const cuerpo = [
+    saludo(lead),
+    ganchoWebFloja(lead),
+    `En Pucará armamos ${webParaElRubro(lead)}.`,
+    `¿${t.Te} muestro en 15 minutos un ejemplo de cómo podría quedar la de ${e}?`,
+    FIRMA,
+    t.baja,
+  ].join('\n\n');
+  const seguimiento1 = [
+    saludo(lead),
+    `${t.Te} escribo de nuevo con otra idea. Además de la web, armamos asistentes de IA que responden al instante por WhatsApp ${lead.rubro === 'gimnasios' ? 'precios y horarios, anotan para una clase de prueba' : 'las consultas, toman los datos de la persona'} y ${t.te} avisan cuando hay alguien listo para ${lead.rubro === 'gimnasios' ? 'inscribirse' : 'comprar'}.`,
+    `¿Hoy quién responde esas consultas? Si ${t.sirve}, en 15 minutos ${t.te} muestro un ejemplo.`,
+    FIRMA_COMPLETA,
+    t.baja,
+  ].join('\n\n');
+  const seguimiento2 = [
+    saludoSeguimiento(lead),
+    `Este es mi último mensaje para no ${t.bandeja}. Si en algún momento ${t.sirve}, en Pucará hacemos páginas web, asistentes de IA, automatizaciones y sistemas de gestión a medida. ${t.Respondé} este email y lo vemos.`,
+    FIRMA_COMPLETA,
+  ].join('\n\n');
+  return { asunto: `la web de ${e}`, cuerpo, seguimiento1, seguimiento2, variante: 'web_floja', estado: 'pendiente', creado: new Date().toISOString() };
+}
+
 // Número de WhatsApp en formato internacional (5491112345678), o '' si parece un fijo.
 // En Argentina los celulares se escriben con 15 después del código de área: "0221 15-436-6542".
 export function numeroWhatsapp(telefono) {
@@ -149,22 +195,64 @@ export function numeroWhatsapp(telefono) {
   return '';
 }
 
+// WhatsApp sacado de una web: a veces viene sin el 9 ("543413682675") y así wa.me no abre el chat
+export function normalizarWhatsapp(numero) {
+  const d = String(numero ?? '').replace(/\D/g, '');
+  if (/^549\d{10}$/.test(d)) return d;
+  if (/^54\d{10}$/.test(d)) return `549${d.slice(2)}`;
+  return d;
+}
+
+// Teléfono sin 15 que puede ser celular: en Argentina los fijos empiezan casi siempre con 4 o 5
+// ("011 4776-6496", "0341 449-5233"). "011 7623-1725" o "0221 676-4043" probablemente sean celulares.
+export function posibleCelular(telefono) {
+  const local = String(telefono ?? '').replace(/\D/g, '').replace(/^0/, '');
+  if (local.length !== 10) return '';
+  for (const largoArea of [2, 3, 4]) {
+    const area = local.slice(0, largoArea);
+    const abonado = local.slice(largoArea);
+    // Códigos de área válidos: 11 (AMBA) o 2xx/3xx 3-4 dígitos del interior
+    const areaValida = largoArea === 2 ? area === '11' : /^[23]/.test(area);
+    if (areaValida && !/^[45]/.test(abonado)) return `549${area}${abonado}`;
+    if (areaValida) return '';
+  }
+  return '';
+}
+
+// Solo se mencionan las reseñas si son un elogio real: buena nota y suficientes opiniones
+export const buenasResenas = (lead) => Number(lead.calificacion) >= 4.5 && Number(lead.resenas) >= 30;
+
 // Mensaje corto para mandar a mano por WhatsApp o Instagram. Con web propia: agente. Sin web: página web.
 export function redactarManual(lead) {
   const e = nombreCorto(lead.empresa, lead.ubicacion);
   const sinWeb = !lead.web;
-  const numero = lead.whatsapp || numeroWhatsapp(lead.telefono);
+  const seguro = normalizarWhatsapp(lead.whatsapp) || numeroWhatsapp(lead.telefono);
+  // Instagram va antes que un número dudoso; sin Instagram, se prueba el número
+  const dudoso = !seguro && !lead.instagram ? posibleCelular(lead.telefono) : '';
+  const numero = seguro || dudoso;
   const canal = numero ? 'whatsapp' : lead.instagram ? 'instagram' : '';
   if (!canal) return null;
-  const donde = lead.ubicacion ? ` en ${lead.ubicacion.replace(/ CABA$/, '')}` : '';
+  const extra = { numero_dudoso: Boolean(dudoso) };
   const que = lead.rubro === 'gimnasios' ? 'precios y horarios' : 'lo que ofrecen';
+  // Sin web: se arranca por algo bueno que se ve en Maps (las reseñas) y se muestra lo que una web hace
+  // y Instagram no: que la gente vea todo y reserve sola, sin tener que escribirles.
+  const resenas = buenasResenas(lead) ? ` tiene muy buenas reseñas en Google Maps (${String(lead.calificacion).replace('.', ',')} ★ con ${lead.resenas} opiniones) y` : '';
+  if (lead.web_floja) {
+    const texto = [
+      `Hola, ¿cómo están? Soy Tobías, de Pucará Technologies.`,
+      ganchoWebFloja(lead),
+      `Armamos ${webParaElRubro(lead)}. ¿Les muestro un ejemplo de cómo podría quedar la de ${e}?`,
+      'Si no les interesa, me avisan y no les escribo más.',
+    ].join('\n\n');
+    return { canal, numero, instagram: lead.instagram ?? '', oferta: 'renovar_web', texto, ...extra, creado: new Date().toISOString() };
+  }
   const texto = sinWeb
     ? [
         `Hola, ¿cómo están? Soy Tobías, de Pucará Technologies.`,
-        `Vi que ${e} figura en Google Maps${lead.instagram ? ' con su Instagram' : ''} pero sin página web. Cuando alguien busca un ${lead.rubro === 'gimnasios' ? 'gimnasio' : 'lugar'}${donde} y quiere ver ${que}, ¿dónde los encuentra?`,
+        resenas ? `Vi que ${e}${resenas} que todavía no tiene página web propia.` : `Vi que ${e} está en Google Maps pero todavía no tiene página web propia.`,
         lead.rubro === 'gimnasios'
-          ? 'Armamos páginas web para gimnasios, con precios, horarios y un botón para reservar una clase de prueba, así quien los busca en Google los encuentra y se anota. ¿Les muestro un ejemplo?'
-          : 'Armamos páginas web para negocios, con lo que ofrecen y un botón para consultar, así quien los busca en Google los encuentra y les escribe. ¿Les muestro un ejemplo?',
+          ? 'Armamos páginas web para gimnasios donde la gente ve precios, horarios y clases, y reserva una clase de prueba sola, sin tener que escribirles por Instagram o WhatsApp para preguntar. ¿Les interesaría ver un ejemplo?'
+          : 'Armamos páginas web para negocios donde la gente ve todo lo que ofrecen y consulta sola, sin tener que escribirles para preguntar. ¿Les interesaría ver un ejemplo?',
         'Si no les interesa, me avisan y no les escribo más.',
       ].join('\n\n')
     : [
@@ -173,7 +261,7 @@ export function redactarManual(lead) {
         `Armamos asistentes de IA que responden al instante por WhatsApp, ${lead.rubro === 'gimnasios' ? 'anotan para una clase de prueba' : 'toman los datos de la persona'} y les avisan cuando hay alguien listo para ${lead.rubro === 'gimnasios' ? 'inscribirse' : 'comprar'}. ¿Les muestro cómo funcionaría con ${e}?`,
         'Si no les interesa, me avisan y no les escribo más.',
       ].join('\n\n');
-  return { canal, numero, instagram: lead.instagram ?? '', oferta: sinWeb ? 'web' : 'agente', texto, creado: new Date().toISOString() };
+  return { canal, numero, instagram: lead.instagram ?? '', oferta: sinWeb ? 'web' : 'agente', texto, ...extra, creado: new Date().toISOString() };
 }
 
 export const palabras = (texto) => texto.split(/\s+/).filter(Boolean).length;

@@ -19,7 +19,8 @@ const ARCHIVO_CSV = new URL('leads.csv', DATA);
 const ARCHIVO_CRUDOS = new URL('maps.json', DATA);
 
 const leerJson = async (url, porDefecto) => (existsSync(url) ? JSON.parse(await readFile(url, 'utf8')) : porDefecto);
-const sinTildes = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+// NFKD también convierte letras decorativas (𝙎𝙥𝙤𝙧𝙩𝘾𝙡𝙪𝙗 -> SportClub)
+const sinTildes = (t) => t.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 export function esCadena(nombre, excluir) {
   const n = sinTildes(nombre);
