@@ -1,19 +1,38 @@
 {
-  "_comentario": "Rampa de envíos: el día 1 es el del primer envío real. Cuenta primeros emails y seguimientos juntos. Nunca más de 'maximo' por día desde Gmail gratis.",
+  "_comentario": "Rampa de envíos: el día 1 es el del primer envío real (28/10/2026). Cuenta primeros emails y seguimientos juntos. Tobías aprueba unos 5 por día y va subiendo; nunca más de \"maximo\" desde Gmail gratis.",
   "rampa": [
-    { "desde_dia": 1, "por_dia": 2 },
-    { "desde_dia": 4, "por_dia": 3 },
-    { "desde_dia": 8, "por_dia": 5 },
-    { "desde_dia": 15, "por_dia": 8 },
-    { "desde_dia": 22, "por_dia": 10 }
+    {
+      "desde_dia": 1,
+      "por_dia": 5
+    },
+    {
+      "desde_dia": 3,
+      "por_dia": 7
+    },
+    {
+      "desde_dia": 8,
+      "por_dia": 10
+    }
   ],
   "maximo": 10,
   "_dias": "Días de la semana en que se envía: 1 = lunes ... 5 = viernes",
-  "dias": [1, 2, 3, 4, 5],
+  "dias": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
   "hora_desde": 9,
   "hora_hasta": 18,
   "_seguimientos": "Días después del primer email en que sale cada seguimiento, si no respondió",
-  "seguimientos": [3, 7],
+  "seguimientos": [
+    3,
+    7
+  ],
   "_pausa": "Minutos de espera al azar entre un email y el siguiente, para no mandar todo junto",
-  "pausa_minutos": [3, 9]
+  "pausa_minutos": [
+    3,
+    9
+  ]
 }
