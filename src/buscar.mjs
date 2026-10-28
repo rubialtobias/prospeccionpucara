@@ -76,7 +76,7 @@ export async function buscarEnSerper(q, pagina, apiKey) {
   }
 }
 
-const COLUMNAS = ['nombre', 'apellido', 'cargo', 'empresa', 'email', 'email_tipo', 'web', 'whatsapp', 'ubicacion', 'rubro', 'encaja', 'motivo', 'linkedin_url', 'estado', 'nota', 'revisar', 'encontrado', 'titulo', 'snippet', 'consulta'];
+const COLUMNAS = ['nombre', 'apellido', 'cargo', 'empresa', 'email', 'email_tipo', 'web', 'whatsapp', 'telefono', 'instagram', 'direccion', 'ubicacion', 'rubro', 'encaja', 'motivo', 'linkedin_url', 'estado', 'nota', 'revisar', 'encontrado', 'titulo', 'snippet', 'consulta'];
 
 // Agrega un resultado a la lista si es un perfil nuevo. Devuelve true si lo agregó.
 function sumarLead(leads, vistos, resultado, contexto, encontrado) {

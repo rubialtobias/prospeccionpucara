@@ -53,6 +53,8 @@ async function recibeCorreo(email) {
 
 // Reusa la búsqueda guardada si ya se hizo, así mejorar el criterio no gasta créditos
 async function buscarWeb(lead, apiKey, guardada) {
+  // Los de Google Maps ya traen su web (o no tienen): no se busca en Google ni se gastan créditos
+  if (lead.fuente === 'maps') return { q: '', resultados: [], web: lead.web ?? '' };
   const empresa = lead.empresa.split(' / ')[0];
   let { consulta: q, resultados } = guardada ?? {};
   if (!resultados) {
@@ -66,7 +68,10 @@ async function buscarWeb(lead, apiKey, guardada) {
 async function enriquecer(lead, apiKey, guardada) {
   const { q, resultados, web } = await buscarWeb(lead, apiKey, guardada);
   const registro = { consulta: q, resultados, web };
-  if (!web) return { registro, cambios: { web: '', web_revisada: { error: 'No se encontró web propia' } } };
+  if (!web) {
+    const error = lead.fuente === 'maps' ? `No tiene web propia${lead.instagram ? ', solo Instagram' : ''}` : 'No se encontró web propia';
+    return { registro, cambios: { web: '', web_revisada: { error } } };
+  }
 
   let principal;
   try {

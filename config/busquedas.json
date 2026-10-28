@@ -1,32 +1,130 @@
 {
   "_comentario": "Se arma una búsqueda por cada palabra de cada rubro y cada ciudad, con todos los cargos unidos por OR. Una ciudad vacía (\"\") busca en toda Argentina. Google corta los resultados después de unas pocas páginas, así que dividir por ciudad trae más leads. Google ignora lo que pase de 32 palabras: no agregar demasiados cargos.",
   "sitio": "site:ar.linkedin.com/in",
-  "cargos": ["dueño", "fundador", "propietario", "socio gerente", "CEO", "owner"],
+  "cargos": [
+    "dueño",
+    "fundador",
+    "propietario",
+    "socio gerente",
+    "CEO",
+    "owner"
+  ],
   "_excluir": "Apuntamos a pymes: se sacan franquicias y cadenas grandes, que tienen demasiado volumen para un agente.",
-  "excluir": ["remax", "re/max", "keller williams", "century 21", "coldwell banker"],
-  "ciudades": ["", "CABA", "Buenos Aires", "Córdoba", "Rosario", "Mendoza", "La Plata", "Mar del Plata", "Tucumán", "Neuquén"],
+  "excluir": [
+    "remax",
+    "re/max",
+    "keller williams",
+    "century 21",
+    "coldwell banker"
+  ],
+  "ciudades": [
+    "",
+    "CABA",
+    "Buenos Aires",
+    "Córdoba",
+    "Rosario",
+    "Mendoza",
+    "La Plata",
+    "Mar del Plata",
+    "Tucumán",
+    "Neuquén"
+  ],
   "rubros": {
     "inmobiliarias": {
-      "palabras": ["inmobiliaria", "bienes raíces", "real estate", "negocios inmobiliarios"],
+      "palabras": [
+        "inmobiliaria",
+        "bienes raíces",
+        "real estate",
+        "negocios inmobiliarios"
+      ],
       "campana": "agentes",
       "prioridad": 1
     },
     "ecommerce": {
-      "palabras": ["tienda online", "ecommerce", "e-commerce", "Tiendanube", "Shopify", "venta de iphones", "indumentaria"],
+      "palabras": [
+        "tienda online",
+        "ecommerce",
+        "e-commerce",
+        "Tiendanube",
+        "Shopify",
+        "venta de iphones",
+        "indumentaria"
+      ],
       "campana": "agentes",
       "prioridad": 2
     },
     "gimnasios": {
-      "palabras": ["gimnasio", "gym", "crossfit", "centro de entrenamiento"],
+      "palabras": [
+        "gimnasio",
+        "gym",
+        "crossfit",
+        "centro de entrenamiento"
+      ],
       "campana": "agentes",
       "prioridad": 3,
       "_nota": "Pocos dueños en LinkedIn. Más adelante se complementa con Google Maps."
     },
     "restaurantes": {
-      "palabras": ["restaurante", "restaurant", "gastronomía", "parrilla", "bar"],
+      "palabras": [
+        "restaurante",
+        "restaurant",
+        "gastronomía",
+        "parrilla",
+        "bar"
+      ],
       "campana": "agentes",
       "prioridad": 4,
       "_nota": "Pocos dueños en LinkedIn. Más adelante se complementa con Google Maps."
     }
+  },
+  "maps": {
+    "_comentario": "Búsquedas en Google Maps (Serper /places): cada palabra del rubro en cada ciudad o barrio. 10 lugares por página, 1 crédito por página.",
+    "rubros": {
+      "gimnasios": {
+        "palabras": [
+          "gimnasio",
+          "box de crossfit",
+          "entrenamiento funcional"
+        ]
+      }
+    },
+    "ciudades": [
+      "Palermo CABA",
+      "Belgrano CABA",
+      "Caballito CABA",
+      "Villa Urquiza CABA",
+      "Almagro CABA",
+      "Flores CABA",
+      "La Plata",
+      "Córdoba",
+      "Rosario",
+      "Mendoza",
+      "Mar del Plata",
+      "Quilmes",
+      "San Isidro",
+      "Morón",
+      "Lomas de Zamora",
+      "Neuquén",
+      "Tucumán",
+      "Salta"
+    ],
+    "_excluir": "Cadenas grandes: no son pymes. Se comparan con el nombre del lugar.",
+    "excluir": [
+      "smart fit",
+      "smartfit",
+      "megatlon",
+      "sportclub",
+      "sport club",
+      "open park",
+      "bigg",
+      "fiter",
+      "gold's gym",
+      "golds gym",
+      "on fit",
+      "onfit",
+      "hard candy",
+      "personal fit",
+      "aqua fit"
+    ]
   }
 }

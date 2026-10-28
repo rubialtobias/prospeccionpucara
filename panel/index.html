@@ -317,7 +317,8 @@ let abierto = null;
 
 const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const quien = (l) => [l.nombre, l.apellido].filter(Boolean).join(' ') || 'Sin nombre';
+// Los de Google Maps no traen persona: se muestra el negocio
+const quien = (l) => [l.nombre, l.apellido].filter(Boolean).join(' ') || (l.fuente === 'maps' ? l.empresa : 'Sin nombre');
 const hoyIso = () => new Date().toISOString().slice(0, 10);
 const envios = (l) => (l.historial ?? []).filter((h) => h.tipo === 'envio');
 const ultimoContacto = (l) => (l.historial ?? []).filter((h) => h.tipo === 'envio' || h.tipo === 'respuesta').at(-1);
@@ -392,7 +393,7 @@ function pintarTabla() {
   $('#contador').textContent = `${lista.length}`;
   $('#tabla tbody').innerHTML = lista.length ? lista.map((l) => `
     <tr data-url="${esc(l.linkedin_url)}" class="${l.linkedin_url === abierto ? 'activo' : ''}" tabindex="0">
-      <td class="c-persona"><div class="quien">${esc(quien(l))}</div><div class="gris">${esc(l.cargo)}</div></td>
+      <td class="c-persona"><div class="quien">${esc(quien(l))}</div><div class="gris">${esc(l.cargo || l.categoria)}</div></td>
       <td class="c-empresa">${esc(l.empresa) || '<span class="gris">—</span>'}</td>
       <td class="c-email">${esc(l.email) || '<span class="gris">—</span>'}</td>
       <td class="c-ciudad">${esc(l.ubicacion) || '<span class="gris">—</span>'}</td>
@@ -434,10 +435,16 @@ function pintarFicha() {
       ].filter(Boolean).join(' · ')}</dd>` : ''}
       <dt>Ciudad</dt><dd>${esc(l.ubicacion) || '—'}</dd>
       <dt>Rubro</dt><dd>${esc(l.rubro)}</dd>
-      <dt>LinkedIn</dt><dd><a href="${esc(l.linkedin_url)}" target="_blank" rel="noopener">Ver perfil</a></dd>
+      ${l.fuente === 'maps' ? `
+      <dt>Teléfono</dt><dd class="num">${esc(l.telefono) || '<span class="gris">—</span>'}</dd>
+      <dt>Instagram</dt><dd>${l.instagram ? `<a href="${esc(l.instagram)}" target="_blank" rel="noopener">${esc(l.instagram.replace(/^https?:\/\/(www\.)?instagram\.com\//, '@').replace(/\/$/, ''))}</a>` : '<span class="gris">—</span>'}</dd>
+      <dt>Dirección</dt><dd>${esc(l.direccion) || '—'}</dd>
+      <dt>Reseñas</dt><dd>${l.calificacion ? `${esc(l.calificacion)} ★ · ${esc(l.resenas)} reseñas` : '—'}</dd>
+      <dt>Maps</dt><dd><a href="${esc(l.linkedin_url)}" target="_blank" rel="noopener">Ver en Google Maps</a></dd>`
+      : `<dt>LinkedIn</dt><dd><a href="${esc(l.linkedin_url)}" target="_blank" rel="noopener">Ver perfil</a></dd>`}
       <dt>Encontrado</dt><dd class="num">${esc(l.encontrado)}</dd>
     </dl>
-    <div class="snippet">${esc(l.snippet)}</div>
+    ${l.snippet ? `<div class="snippet">${esc(l.snippet)}</div>` : ''}
     ${l.borrador ? fichaCorreo(l) : ''}
     <div class="campo">
       <label for="estado">Estado</label>
