@@ -67,3 +67,20 @@ test('formato mínimo: firma en negrita, links solo donde hay web o WhatsApp', a
   assert.match(seguimiento, /href="https:\/\/pucaratechnologies.com"/);
   assert.match(seguimiento, /href="https:\/\/wa.me\/5491154866935"/);
 });
+
+test('email inválido: el lead pasa a WhatsApp y el envío rebotado no cuenta', async () => {
+  const { marcarEmailInvalido, enviosDe } = await import('../src/enviar.mjs');
+  const lead = {
+    empresa: 'MARK Training Club', rubro: 'gimnasios', encaja: 'si', estado: 'enviado', email: 'hello@mark.com', email_tipo: 'generico',
+    web: 'https://mark.com', whatsapp: '5491161103113', borrador: { estado: 'aprobado' },
+    historial: [{ tipo: 'envio', paso: 0, fecha: '2026-10-28T16:15:00Z' }],
+  };
+  marcarEmailInvalido(lead, 'El email rebotó.');
+  assert.equal(lead.email, undefined);
+  assert.deepEqual(lead.email_invalido, ['hello@mark.com']);
+  assert.equal(lead.estado, 'nuevo');
+  assert.equal(enviosDe(lead).length, 0);
+  assert.equal(lead.borrador.estado, 'descartado');
+  assert.equal(lead.mensaje_manual.canal, 'whatsapp');
+  assert.match(lead.nota, /Pasó a WhatsApp/);
+});

@@ -48,6 +48,7 @@ Cuenta de envío: `tobias.pucaratech@gmail.com`, separada de la cuenta personal 
 | `node src/calificar.mjs exportar` / `importar` | Claude limpia y califica los leads nuevos |
 | `npm run enriquecer` | Busca web, email y WhatsApp de los que encajan |
 | `npm run panel` | Panel local en http://localhost:4321 |
+| `node --env-file=.env src/verificar.mjs` | Verifica que los emails existan antes de mandar (el envío también lo hace solo) |
 | `npm run sincronizar` | Sube los leads al panel online y trae lo que se cambió ahí |
 | `node src/redactar.mjs` | Arma los borradores de email para los que encajan y tienen email |
 | `node --env-file=.env src/enviar.mjs --prueba` | Muestra qué se mandaría hoy, sin mandar nada |

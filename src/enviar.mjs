@@ -16,6 +16,8 @@ import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { aCsv } from './buscar.mjs';
 import { sincronizar } from './sincronizar.mjs';
+import { verificarEmail } from './verificar.mjs';
+import { redactarManual } from './redactar.mjs';
 
 const RAIZ = new URL('..', import.meta.url);
 const ARCHIVO_LEADS = new URL('data/leads.json', RAIZ);
@@ -126,6 +128,23 @@ async function crearTransporte(remitente) {
   return t;
 }
 
+// Email que no existe (rebotó o la verificación lo rechazó): no se descarta el lead, se pasa a WhatsApp o
+// Instagram. Los envíos que rebotaron quedan en el historial como "rebote", así no cuentan como contacto.
+export function marcarEmailInvalido(lead, motivo) {
+  const ahora = new Date().toISOString();
+  const email = lead.email;
+  lead.historial = (lead.historial ?? []).map((h) => (h.tipo === 'envio' && (h.canal ?? 'email') === 'email' ? { ...h, tipo: 'rebote' } : h));
+  if (lead.estado !== 'nuevo') lead.historial.push({ fecha: ahora, tipo: 'estado', de: lead.estado, a: 'nuevo' });
+  lead.estado = 'nuevo';
+  lead.email_invalido = [...(lead.email_invalido ?? []), email];
+  delete lead.email;
+  delete lead.email_tipo;
+  if (lead.borrador) lead.borrador = { ...lead.borrador, estado: 'descartado' };
+  lead.mensaje_manual = redactarManual(lead) ?? undefined;
+  lead.nota = [lead.nota, `${motivo} (${email})${lead.mensaje_manual ? ` Pasó a ${lead.mensaje_manual.canal === 'whatsapp' ? 'WhatsApp' : 'Instagram'}.` : ' No tiene otro canal: queda para llamar.'}`].filter(Boolean).join('\n');
+  lead.actualizado_panel = ahora;
+}
+
 const dominioDe = (email) => email.split('@')[1];
 const CORREO_GRATIS = /^(gmail|hotmail|yahoo|outlook|live|icloud)\./;
 
@@ -158,10 +177,7 @@ async function revisarBandeja(leads, remitente) {
       }
       const [rebote] = await imap.search({ gmailRaw: `from:(mailer-daemon OR postmaster) "${lead.email}" after:${despues}` }) || [];
       if (rebote) {
-        lead.historial.push({ fecha: ahora, tipo: 'estado', de: lead.estado, a: 'descartado' });
-        lead.estado = 'descartado';
-        lead.nota = [lead.nota, 'El email rebotó: la dirección no existe o no recibe correo.'].filter(Boolean).join('\n');
-        lead.actualizado_panel = ahora;
+        marcarEmailInvalido(lead, 'El email rebotó: la dirección no existe.');
         rebotes++;
       }
     }
@@ -169,6 +185,29 @@ async function revisarBandeja(leads, remitente) {
     await imap.logout();
   }
   return { respuestas, rebotes };
+}
+
+// Antes de un primer email se verifica que la casilla exista. Solo salen las válidas y las de servidores que
+// aceptan todo (catch_all, no se puede saber). Las inválidas pasan a WhatsApp o Instagram; las que no se
+// pudieron verificar se saltean y se reintentan el próximo día.
+async function verificarCola(candidatos, cupo) {
+  const cola = [];
+  const UNA_SEMANA = 7 * DIA_MS;
+  for (const item of candidatos) {
+    if (cola.length >= cupo) break;
+    if (item.paso > 0) { cola.push(item); continue; }
+    const { lead } = item;
+    const previa = lead.email_verificado;
+    const vigente = previa?.email === lead.email && Date.now() - new Date(previa.fecha) < UNA_SEMANA && previa.resultado !== 'desconocido';
+    const v = vigente ? previa : { ...(await verificarEmail(lead.email)), email: lead.email, fecha: new Date().toISOString() };
+    lead.email_verificado = v;
+    if (v.resultado === 'valido' || v.resultado === 'catch_all') cola.push(item);
+    else if (v.resultado === 'invalido') {
+      console.log(`  No existe ${lead.email} (${lead.empresa}): pasa a WhatsApp o Instagram.`);
+      marcarEmailInvalido(lead, 'La verificación dice que el email no existe.');
+    } else console.log(`  No se pudo verificar ${lead.email} (${lead.empresa}): se reintenta mañana.`);
+  }
+  return cola;
 }
 
 async function guardar(leads) {
@@ -212,7 +251,8 @@ async function main() {
 
   const limite = limiteDelDia(config, estado.inicio, ahora);
   const cupo = Math.max(0, limite - enviadosHoy(leads, ahora));
-  const cola = armarCola(leads, config, ahora).slice(0, cupo);
+  const cola = await verificarCola(armarCola(leads, config, ahora), cupo);
+  await guardar(leads);
   console.log(`Límite de hoy: ${limite}. Ya enviados hoy: ${limite - cupo}. Para mandar ahora: ${cola.length}.`);
 
   if (!hayHorario(config, ahora) && !args.has('--fuera-de-horario')) {
