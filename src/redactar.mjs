@@ -99,7 +99,7 @@ function gancho(lead) {
     },
     formulario: {
       asunto: `consultas en la web de ${e}`,
-      gancho: `Vi que en la web de ${e} las consultas entran por formulario. Si alguien lo completa un domingo a la noche, ¿cuándo recibe la primera respuesta?`,
+      gancho: `Vi que en la web de ${e} las consultas entran por formulario. ¿Cómo hacen con las que llegan un domingo a la noche?`,
       canal: 'contestan en el momento, por WhatsApp o en la misma web,',
     },
     general: {
@@ -133,23 +133,27 @@ export function redactar(lead) {
   return { asunto: g.asunto, cuerpo, seguimiento1, seguimiento2, variante: variante(lead), estado: 'pendiente', creado: new Date().toISOString() };
 }
 
-// Webs flojas confirmadas mirándolas (lead.web_floja). El gancho es una pregunta sobre algo que se ve,
-// nunca "su web es fea". "como" dice qué se vio: actualizar (diseño viejo u oscuro), vieja (© de hace años),
+// Webs flojas confirmadas mirándolas (lead.web_floja). Con clase: el gancho nunca juzga la web ni el negocio.
+// Pregunta por el resultado que les importa (que la web les traiga consultas), no por lo que está mal.
+// "como" dice qué se vio: actualizar (diseño viejo u oscuro), vieja (© de hace años),
 // suspendida (la dio de baja el hosting), subdominio (armada gratis, sin dominio propio).
 export function ganchoWebFloja(lead) {
   const e = nombreCorto(lead.empresa, lead.ubicacion);
   const f = lead.web_floja ?? {};
-  const dominio = (lead.web ?? '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+  const deDonde = lead.rubro === 'gimnasios' ? 'consultas o inscripciones' : 'consultas';
   return {
-    vieja: `Entré a la web de ${e} y vi que al pie dice © ${f.anio}. ¿La están pensando renovar?`,
-    suspendida: `Quise entrar a la web de ${e} y aparece como suspendida por el hosting. ¿Lo sabían?`,
-    subdominio: `Vi que la web de ${e} está armada en ${dominio}. ¿Pensaron en tener una con dominio propio?`,
-  }[f.como] ?? `Entré a la web de ${e}. ¿Hace cuánto que no la actualizan?`;
+    // Un aviso útil: es lo único que se dice tal cual, porque les sirve saberlo
+    suspendida: `Les escribo porque quise entrar a la web de ${e} y hoy está fuera de línea (aparece un aviso del hosting). Les aviso por si no lo sabían.`,
+    subdominio: `Estuve viendo la web de ${e}. ¿Les llegan ${deDonde} desde ahí, o la mayoría viene por Instagram y WhatsApp?`,
+  }[f.como] ?? `Estuve viendo la web de ${e} y me quedé con una pregunta: ¿hoy les llegan ${deDonde} desde la web, o la mayoría viene por Instagram y WhatsApp?`;
 }
 
+// Cómo se pasa del gancho a la oferta: si la web está caída, se ofrece una mano para volver a tenerla
+const puenteWeb = (lead) => (lead.web_floja?.como === 'suspendida' ? 'Si les sirve una mano para tenerla de nuevo online, en Pucará armamos' : 'En Pucará armamos');
+
 const webParaElRubro = (lead) => (lead.rubro === 'gimnasios'
-  ? 'páginas web para gimnasios pensadas para el celular: precios, horarios y clases a la vista, y un botón para reservar una clase de prueba'
-  : 'páginas web pensadas para el celular, con todo lo que ofrecen a la vista y un botón para consultar');
+  ? 'páginas web para gimnasios pensadas para que quien los encuentra en Google vea precios, horarios y clases, y reserve una clase de prueba solo'
+  : 'páginas web pensadas para que quien los encuentra en Google vea todo lo que ofrecen y consulte solo');
 
 // Email para quien tiene la web floja: el primero ofrece renovarla, el día 3 el agente de IA, el día 7 todo
 function redactarWebFloja(lead) {
@@ -158,7 +162,7 @@ function redactarWebFloja(lead) {
   const cuerpo = [
     saludo(lead),
     ganchoWebFloja(lead),
-    `En Pucará armamos ${webParaElRubro(lead)}.`,
+    `${puenteWeb(lead)} ${webParaElRubro(lead)}.`,
     `¿${t.Te} muestro en 15 minutos un ejemplo de cómo podría quedar la de ${e}?`,
     FIRMA,
     t.baja,
@@ -241,7 +245,7 @@ export function redactarManual(lead) {
     const texto = [
       `Hola, ¿cómo están? Soy Tobías, de Pucará Technologies.`,
       ganchoWebFloja(lead),
-      `Armamos ${webParaElRubro(lead)}. ¿Les muestro un ejemplo de cómo podría quedar la de ${e}?`,
+      `${puenteWeb(lead)} ${webParaElRubro(lead)}. ¿Les muestro un ejemplo de cómo podría quedar la de ${e}?`,
       'Si no les interesa, me avisan y no les escribo más.',
     ].join('\n\n');
     return { canal, numero, instagram: lead.instagram ?? '', oferta: 'renovar_web', texto, ...extra, creado: new Date().toISOString() };

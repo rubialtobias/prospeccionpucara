@@ -108,14 +108,19 @@ test('nombres de Google Maps sin agregados', async () => {
 test('web floja: pregunta sobre lo que se vio y ofrece renovarla', async () => {
   const { redactarManual, ganchoWebFloja } = await import('../src/redactar.mjs');
   const base = { rubro: 'gimnasios', email_tipo: 'generico', ubicacion: 'Rosario' };
-  assert.match(ganchoWebFloja({ ...base, empresa: 'Urban Six', web_floja: { como: 'vieja', anio: 2018 } }), /al pie dice © 2018\. ¿La están pensando renovar\?/);
-  assert.match(ganchoWebFloja({ ...base, empresa: 'La Mecca', web_floja: { como: 'suspendida' } }), /aparece como suspendida/);
-  assert.match(ganchoWebFloja({ ...base, empresa: 'FitLife', web: 'https://gimnasiofitlife.carrd.co', web_floja: { como: 'subdominio' } }), /armada en gimnasiofitlife\.carrd\.co/);
+  // Con clase: pregunta por el resultado (consultas), nunca por lo que está mal ni por el año del ©
+  const vieja = ganchoWebFloja({ ...base, empresa: 'Urban Six', web_floja: { como: 'vieja', anio: 2018 } });
+  assert.match(vieja, /¿hoy les llegan consultas o inscripciones desde la web, o la mayoría viene por Instagram y WhatsApp\?/);
+  assert.doesNotMatch(vieja, /2018|©/);
+  const caida = redactar({ ...base, empresa: 'La Mecca', email: 'x@gmail.com', web_floja: { como: 'suspendida' } });
+  assert.match(caida.cuerpo, /hoy está fuera de línea .* Les aviso por si no lo sabían\./);
+  assert.match(caida.cuerpo, /Si les sirve una mano para tenerla de nuevo online/);
   const b = redactar({ ...base, empresa: 'Gimnasio California Rosario', email: 'x@gmail.com', web_floja: { como: 'actualizar' } });
   assert.equal(b.asunto, 'la web de Gimnasio California');
-  assert.match(b.cuerpo, /¿Hace cuánto que no la actualizan\?/);
   assert.match(b.seguimiento1, /asistentes de IA/);
-  assert.doesNotMatch(b.cuerpo, /fea|horrible|mala/i);
+  for (const texto of [vieja, caida.cuerpo, b.cuerpo]) {
+    assert.doesNotMatch(texto, /fea|horrible|mala|vieja|hace cuánto|actualizan|dónde los encuentra|desde el celular/i);
+  }
   const m = redactarManual({ ...base, empresa: 'ION GYM', web: 'https://iongym.com.ar', telefono: '0221 15-111-2222', web_floja: { como: 'actualizar' } });
   assert.equal(m.oferta, 'renovar_web');
 });
