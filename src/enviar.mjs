@@ -215,6 +215,17 @@ async function guardar(leads) {
   await writeFile(ARCHIVO_CSV, aCsv(leads));
 }
 
+// Si el panel online no responde (por ejemplo, Supabase pausó el proyecto), se avisa y se sigue con los datos
+// de esta compu: lo aprobado en el panel online después del último sincronizado no llega, pero nada se pierde.
+async function sincronizarSinFrenar(cuando) {
+  try {
+    const { aplicados } = await sincronizar();
+    if (aplicados) console.log(`Traídos ${aplicados} cambios del panel online.`);
+  } catch (e) {
+    console.log(`Aviso: no se pudo sincronizar con el panel online ${cuando} (${e.message}). Se sigue con los datos de esta compu.`);
+  }
+}
+
 const hayPanelOnline = () => Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 async function main() {
@@ -224,10 +235,7 @@ async function main() {
   const estado = existsSync(ARCHIVO_ESTADO) ? JSON.parse(await readFile(ARCHIVO_ESTADO, 'utf8')) : { inicio: null };
   const ahora = new Date();
 
-  if (hayPanelOnline() && !prueba) {
-    const { aplicados } = await sincronizar();
-    if (aplicados) console.log(`Traídos ${aplicados} cambios del panel online.`);
-  }
+  if (hayPanelOnline() && !prueba) await sincronizarSinFrenar('al empezar');
   const leads = JSON.parse(await readFile(ARCHIVO_LEADS, 'utf8'));
 
   if (args.has('--muestra')) {
@@ -297,7 +305,7 @@ async function main() {
     transporte?.close();
   }
   console.log(`Listo: ${enviados} enviados.`);
-  if (hayPanelOnline()) await sincronizar();
+  if (hayPanelOnline()) await sincronizarSinFrenar('al terminar');
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
