@@ -65,8 +65,10 @@ export function armarCola(leads, config, hoy) {
     if (!lead.borrador[`seguimiento${paso}`]?.trim()) continue;
     if (diasEntre(new Date(hechos[0].fecha), hoy) >= config.seguimientos[paso - 1]) seguimientos.push({ lead, paso });
   }
-  // Los aprobados primero que se aprobaron
-  nuevos.sort((a, b) => String(a.lead.borrador.revisado ?? '').localeCompare(String(b.lead.borrador.revisado ?? '')));
+  // Primero los emails verificados (menos riesgo de rebote) y, entre iguales, los que se aprobaron antes
+  const confianza = (l) => ({ valido: 0, catch_all: 1 }[l.email_verificado?.email === l.email ? l.email_verificado.resultado : ''] ?? 2);
+  nuevos.sort((a, b) => confianza(a.lead) - confianza(b.lead)
+    || String(a.lead.borrador.revisado ?? '').localeCompare(String(b.lead.borrador.revisado ?? '')));
   return [...seguimientos, ...nuevos];
 }
 
