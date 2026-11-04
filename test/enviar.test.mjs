@@ -84,3 +84,21 @@ test('email inválido: el lead pasa a WhatsApp y el envío rebotado no cuenta', 
   assert.equal(lead.mensaje_manual.canal, 'whatsapp');
   assert.match(lead.nota, /Pasó a WhatsApp/);
 });
+
+test('aprobación automática: solo pendientes que encajan y sin enviar', async () => {
+  const { pendientesDeAprobar, aprobarSolo } = await import('../src/enviar.mjs');
+  const base = { encaja: 'si', email: 'a@a.com', estado: 'con_email', borrador: { estado: 'pendiente' } };
+  const leads = [
+    { ...base, empresa: 'sirve' },
+    { ...base, empresa: 'descartado a mano', borrador: { estado: 'descartado' } },
+    { ...base, empresa: 'dudoso', encaja: 'dudoso' },
+    { ...base, empresa: 'respondió', estado: 'respondio' },
+    { ...base, empresa: 'ya enviado', historial: [{ tipo: 'envio', fecha: '2026-11-01T10:00:00Z' }] },
+  ];
+  const lista = pendientesDeAprobar(leads);
+  assert.deepEqual(lista.map((l) => l.empresa), ['sirve']);
+  aprobarSolo(lista[0], '2026-11-04T13:00:00Z');
+  assert.equal(lista[0].borrador.estado, 'aprobado');
+  assert.equal(lista[0].borrador.aprobado_por, 'automatico');
+  assert.equal(lista[0].actualizado_panel, '2026-11-04T13:00:00Z');
+});

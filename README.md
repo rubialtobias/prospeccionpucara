@@ -73,7 +73,7 @@ Los datos (`data/`) y el `.env` nunca se suben al repo.
 
 ## Envíos
 
-1. Los borradores se aprueban, editan o descartan desde el panel (filtro **Email → Por aprobar**). Solo salen los aprobados.
+1. La tarea de Windows "Prospeccion Pucara - envio diario" corre sola de lunes a viernes a las 10 (registro en `data/envio-diario.log`). Completa el cupo del día aprobando borradores con la casilla verificada (`autoaprobar` en `config/envios.json`). Desde el panel se puede editar o descartar un borrador antes de esa hora.
 2. `config/envios.json` tiene la rampa: 2 por día los primeros 3 días, 3 hasta el día 7, 5 hasta el 14, 8 hasta el 21 y después 10. Cuenta primeros emails y seguimientos juntos. Solo de lunes a viernes, de 9 a 18.
 3. Si alguien responde, deja de recibir seguimientos y aparece en **Para responder**. Si un email rebota, el lead se descarta.
 4. Panel online: correr una vez `supabase/02-borradores.sql` en el SQL Editor de Supabase.

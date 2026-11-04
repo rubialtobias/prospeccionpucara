@@ -1,20 +1,5 @@
 {
   "_comentario": "Rampa de envíos: el día 1 es el del primer envío real (28/10/2026). Cuenta primeros emails y seguimientos juntos. Tobías aprueba unos 5 por día y va subiendo; nunca más de \"maximo\" desde Gmail gratis.",
-  "rampa": [
-    {
-      "desde_dia": 1,
-      "por_dia": 5
-    },
-    {
-      "desde_dia": 3,
-      "por_dia": 7
-    },
-    {
-      "desde_dia": 8,
-      "por_dia": 10
-    }
-  ],
-  "maximo": 10,
   "_dias": "Días de la semana en que se envía: 1 = lunes ... 5 = viernes",
   "dias": [
     1,
@@ -34,5 +19,22 @@
   "pausa_minutos": [
     3,
     9
-  ]
+  ],
+  "rampa": [
+    {
+      "desde_dia": 1,
+      "por_dia": 5
+    },
+    {
+      "desde_dia": 3,
+      "por_dia": 7
+    },
+    {
+      "desde_dia": 8,
+      "por_dia": 10
+    }
+  ],
+  "maximo": 10,
+  "_autoaprobar": "Si está en true, cada corrida completa el cupo del día aprobando sola borradores con la casilla verificada.",
+  "autoaprobar": true
 }

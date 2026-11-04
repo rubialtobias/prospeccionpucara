@@ -192,16 +192,19 @@ async function revisarBandeja(leads, remitente) {
 // Antes de un primer email se verifica que la casilla exista. Solo salen las válidas y las de servidores que
 // aceptan todo (catch_all, no se puede saber). Las inválidas pasan a WhatsApp o Instagram; las que no se
 // pudieron verificar se saltean y se reintentan el próximo día.
+async function verificacionDe(lead) {
+  const previa = lead.email_verificado;
+  const vigente = previa?.email === lead.email && Date.now() - new Date(previa.fecha) < 7 * DIA_MS && previa.resultado !== 'desconocido';
+  return vigente ? previa : { ...(await verificarEmail(lead.email)), email: lead.email, fecha: new Date().toISOString() };
+}
+
 async function verificarCola(candidatos, cupo) {
   const cola = [];
-  const UNA_SEMANA = 7 * DIA_MS;
   for (const item of candidatos) {
     if (cola.length >= cupo) break;
     if (item.paso > 0) { cola.push(item); continue; }
     const { lead } = item;
-    const previa = lead.email_verificado;
-    const vigente = previa?.email === lead.email && Date.now() - new Date(previa.fecha) < UNA_SEMANA && previa.resultado !== 'desconocido';
-    const v = vigente ? previa : { ...(await verificarEmail(lead.email)), email: lead.email, fecha: new Date().toISOString() };
+    const v = await verificacionDe(lead);
     lead.email_verificado = v;
     if (v.resultado === 'valido' || v.resultado === 'catch_all') cola.push(item);
     else if (v.resultado === 'invalido') {
@@ -210,6 +213,35 @@ async function verificarCola(candidatos, cupo) {
     } else console.log(`  No se pudo verificar ${lead.email} (${lead.empresa}): se reintenta mañana.`);
   }
   return cola;
+}
+
+// Borradores que esperan aprobación y todavía no salieron. Los que se descartaron a mano no se tocan.
+export function pendientesDeAprobar(leads) {
+  return leads.filter((l) => l.encaja === 'si' && l.email && l.estado === 'con_email'
+    && l.borrador?.estado === 'pendiente' && enviosDe(l).length === 0);
+}
+
+export function aprobarSolo(lead, fecha = new Date().toISOString()) {
+  lead.borrador = { ...lead.borrador, estado: 'aprobado', aprobado_por: 'automatico', revisado: fecha };
+  lead.actualizado_panel = fecha;
+}
+
+// Completa el cupo del día aprobando borradores (pedido de Tobías: 10 por día sin intervenir).
+// Solo con la casilla verificada: si el servidor acepta todo o no responde, queda para aprobar a mano.
+async function autoaprobar(leads, cola, cupo, prueba) {
+  for (const lead of pendientesDeAprobar(leads)) {
+    if (cola.length >= cupo) break;
+    const v = await verificacionDe(lead);
+    lead.email_verificado = v;
+    if (v.resultado === 'invalido') {
+      console.log(`  No existe ${lead.email} (${lead.empresa}): pasa a WhatsApp o Instagram.`);
+      marcarEmailInvalido(lead, 'La verificación dice que el email no existe.');
+    } else if (v.resultado === 'valido') {
+      if (!prueba) aprobarSolo(lead);
+      console.log(`  Aprobado automáticamente: ${lead.empresa}`);
+      cola.push({ lead, paso: 0 });
+    }
+  }
 }
 
 async function guardar(leads) {
@@ -262,10 +294,13 @@ async function main() {
   const limite = limiteDelDia(config, estado.inicio, ahora);
   const cupo = Math.max(0, limite - enviadosHoy(leads, ahora));
   const cola = await verificarCola(armarCola(leads, config, ahora), cupo);
-  await guardar(leads);
+  const enHorario = hayHorario(config, ahora) || args.has('--fuera-de-horario');
+  // Fuera de horario no se aprueba nada: quedaría aprobado sin salir y el panel diría otra cosa
+  if (config.autoaprobar && enHorario) await autoaprobar(leads, cola, cupo, prueba);
+  if (!prueba) await guardar(leads);
   console.log(`Límite de hoy: ${limite}. Ya enviados hoy: ${limite - cupo}. Para mandar ahora: ${cola.length}.`);
 
-  if (!hayHorario(config, ahora) && !args.has('--fuera-de-horario')) {
+  if (!enHorario) {
     console.log(`Fuera del horario de envío (días ${config.dias.join(',')}, ${config.hora_desde} a ${config.hora_hasta} h). No se manda nada.`);
     cola.length = 0;
   }
