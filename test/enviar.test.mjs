@@ -102,3 +102,13 @@ test('aprobación automática: solo pendientes que encajan y sin enviar', async 
   assert.equal(lista[0].borrador.aprobado_por, 'automatico');
   assert.equal(lista[0].actualizado_panel, '2026-11-04T13:00:00Z');
 });
+
+test('si un seguimiento salió atrasado, el siguiente espera la separación', async () => {
+  const { armarCola } = await import('../src/enviar.mjs');
+  const conf = { seguimientos: [3, 7] };
+  const borrador = { estado: 'aprobado', seguimiento1: 's1', seguimiento2: 's2' };
+  const lead = { email: 'a@a.com', encaja: 'si', estado: 'seguimiento', borrador,
+    historial: [{ tipo: 'envio', paso: 0, fecha: '2026-11-03T12:00:00' }, { tipo: 'envio', paso: 1, fecha: '2026-11-12T12:00:00' }] };
+  assert.equal(armarCola([lead], conf, new Date('2026-11-13T12:00:00')).length, 0);
+  assert.equal(armarCola([lead], conf, new Date('2026-11-16T12:00:00'))[0].paso, 2);
+});

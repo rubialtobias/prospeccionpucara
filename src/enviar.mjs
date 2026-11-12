@@ -63,7 +63,11 @@ export function armarCola(leads, config, hoy) {
     if (paso > config.seguimientos.length) continue;
     // Si un seguimiento quedó vacío, se saltea
     if (!lead.borrador[`seguimiento${paso}`]?.trim()) continue;
-    if (diasEntre(new Date(hechos[0].fecha), hoy) >= config.seguimientos[paso - 1]) seguimientos.push({ lead, paso });
+    // Además del día desde el primer email, se respeta la separación entre seguimientos (7 - 3 = 4 días):
+    // si uno salió atrasado, el siguiente no llega pegado
+    const separacion = config.seguimientos[paso - 1] - (config.seguimientos[paso - 2] ?? 0);
+    if (diasEntre(new Date(hechos[0].fecha), hoy) >= config.seguimientos[paso - 1]
+      && diasEntre(new Date(hechos.at(-1).fecha), hoy) >= separacion) seguimientos.push({ lead, paso });
   }
   // Primero los emails verificados (menos riesgo de rebote) y, entre iguales, los que se aprobaron antes
   const confianza = (l) => ({ valido: 0, catch_all: 1 }[l.email_verificado?.email === l.email ? l.email_verificado.resultado : ''] ?? 2);
